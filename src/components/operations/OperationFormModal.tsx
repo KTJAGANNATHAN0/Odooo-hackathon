@@ -11,6 +11,8 @@ import {
   SlidersHorizontal,
   Building2,
   AlertTriangle,
+  User as UserIcon,
+  Calendar,
 } from 'lucide-react';
 
 interface OperationFormModalProps {
@@ -30,12 +32,14 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
   onClose,
   defaultType,
 }) => {
-  const { products, warehouses, createOperation, getProductWarehouseStock } = useIMSStore();
+  const { products, warehouses, createOperation, user, getProductWarehouseStock } = useIMSStore();
 
   const [type, setType] = useState<OperationType>(defaultType);
   const [partyName, setPartyName] = useState('');
   const [sourceWhId, setSourceWhId] = useState('');
   const [destWhId, setDestWhId] = useState('');
+  const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [responsibleName, setResponsibleName] = useState(user?.name || 'Alex Rivera');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<FormLine[]>([]);
 
@@ -43,6 +47,9 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
     setType(defaultType);
     setPartyName('');
     setNotes('');
+    setScheduleDate(new Date().toISOString().slice(0, 10));
+    setResponsibleName(user?.name || 'Alex Rivera');
+
     const firstWh = warehouses[0]?.id || '';
     const secondWh = warehouses[1]?.id || warehouses[0]?.id || '';
     setSourceWhId(firstWh);
@@ -57,7 +64,7 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
         },
       ]);
     }
-  }, [defaultType, isOpen, products, warehouses]);
+  }, [defaultType, isOpen, products, warehouses, user]);
 
   if (!isOpen) return null;
 
@@ -101,6 +108,7 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
       supplier_or_customer: partyName,
       source_warehouse_id: type === 'receipt' ? undefined : sourceWhId,
       destination_warehouse_id: type === 'delivery' ? undefined : destWhId,
+      schedule_date: scheduleDate,
       notes,
       lines,
     });
@@ -111,9 +119,9 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
   const getTypeTitle = () => {
     switch (type) {
       case 'receipt':
-        return 'Create Goods Receipt (Incoming)';
+        return 'Create Goods Receipt (WH/IN/XXXX)';
       case 'delivery':
-        return 'Create Delivery Order (Outgoing)';
+        return 'Create Delivery Order (WH/OUT/XXXX)';
       case 'transfer':
         return 'Create Internal Warehouse Transfer';
       case 'adjustment':
@@ -131,6 +139,25 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
+        {/* Status Flow Indicator */}
+        <div className="flex items-center gap-2 mb-4 text-xs font-semibold text-slate-400 border-b border-slate-800 pb-3">
+          <span>Status Flow:</span>
+          {type === 'receipt' ? (
+            <span className="flex items-center gap-1.5 font-mono">
+              <span className="text-indigo-400 font-bold">Draft</span> &gt;
+              <span className="text-slate-500">Ready</span> &gt;
+              <span className="text-slate-500">Done</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 font-mono">
+              <span className="text-indigo-400 font-bold">Draft</span> &gt;
+              <span className="text-slate-500">Waiting</span> &gt;
+              <span className="text-slate-500">Ready</span> &gt;
+              <span className="text-slate-500">Done</span>
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
             {type === 'receipt' && <ArrowDownLeft className="w-5 h-5 text-emerald-400" />}
@@ -140,16 +167,15 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">{getTypeTitle()}</h2>
-            <p className="text-xs text-slate-400">Generate reference document and specify expected stock quantities</p>
+            <p className="text-xs text-slate-400">Auto-incremented reference format (WH/IN/XXXX, WH/OUT/XXXX)</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Main Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {type === 'receipt' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {type === 'receipt' ? (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Vendor / Supplier Name *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Receive From (Vendor) *</label>
                 <input
                   type="text"
                   required
@@ -159,84 +185,73 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
                   className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
                 />
               </div>
-            )}
-
-            {type === 'delivery' && (
+            ) : (
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Customer Name *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Delivery Address (Customer) *</label>
                 <input
                   type="text"
                   required
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
-                  placeholder="e.g. Volt Motors Tech Inc"
+                  placeholder="e.g. TechCorp HQ / Building B"
                   className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             )}
 
-            {type !== 'receipt' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Source Warehouse *</label>
-                <select
-                  value={sourceWhId}
-                  onChange={(e) => setSourceWhId(e.target.value)}
-                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Schedule Date *</label>
+              <input
+                type="date"
+                required
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
 
-            {type !== 'delivery' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Destination Warehouse *</label>
-                <select
-                  value={destWhId}
-                  onChange={(e) => setDestWhId(e.target.value)}
-                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                >
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Responsible User</label>
+              <input
+                type="text"
+                disabled
+                value={responsibleName}
+                className="w-full bg-slate-950/80 text-slate-400 font-semibold text-sm rounded-xl px-3.5 py-2.5 border border-slate-800"
+              />
+            </div>
           </div>
 
-          {/* Line Items */}
+          {/* Products Table */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Operation Line Items ({lines.length})
+                Operation Line Products ({lines.length})
               </label>
               <button
                 type="button"
                 onClick={handleAddLine}
                 className="px-3 py-1.5 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-xs font-semibold flex items-center gap-1.5"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Line Product
+                <Plus className="w-3.5 h-3.5" /> + New Product
               </button>
             </div>
 
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
               {lines.map((line, idx) => {
-                const available = type !== 'receipt' ? getProductWarehouseStock(line.product_id, sourceWhId) : null;
-                const isInsufficient = available !== null && available < line.expected_qty;
+                const available = type !== 'receipt' ? getProductWarehouseStock(line.product_id, sourceWhId || 'wh-1') : null;
+                const isOutOfStock = available !== null && available < line.expected_qty;
 
                 return (
                   <div
                     key={idx}
-                    className="p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                      isOutOfStock
+                        ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                        : 'bg-slate-800/60 border-slate-700'
+                    }`}
                   >
                     <div className="flex-1 w-full sm:w-auto">
-                      <label className="block text-[10px] text-slate-400 mb-1">Product</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">Product Dropdown</label>
                       <select
                         value={line.product_id}
                         onChange={(e) => handleProductChange(idx, e.target.value)}
@@ -251,7 +266,7 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
                     </div>
 
                     <div className="w-full sm:w-36">
-                      <label className="block text-[10px] text-slate-400 mb-1">Expected Qty ({line.unit_of_measure})</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">Quantity ({line.unit_of_measure})</label>
                       <input
                         type="number"
                         min={1}
@@ -264,8 +279,8 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
 
                     {available !== null && (
                       <div className="text-right sm:self-center shrink-0">
-                        <div className="text-[10px] text-slate-400">Current Stock</div>
-                        <div className={`font-mono text-xs font-bold ${isInsufficient ? 'text-red-400' : 'text-emerald-400'}`}>
+                        <div className="text-[10px] text-slate-400">Available</div>
+                        <div className={`font-mono text-xs font-bold ${isOutOfStock ? 'text-red-400' : 'text-emerald-400'}`}>
                           {available} {line.unit_of_measure}
                         </div>
                       </div>
@@ -282,17 +297,17 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
                 );
               })}
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Notes / Instructions</label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add shipping notes, purchase order references, or shelf locations..."
-              className="w-full bg-slate-800 text-slate-200 text-xs rounded-xl p-3 border border-slate-700 focus:outline-none focus:border-indigo-500"
-            />
+            {/* Wireframe Add New Product Link */}
+            <div className="mt-2 text-right">
+              <button
+                type="button"
+                onClick={handleAddLine}
+                className="text-xs text-indigo-400 font-semibold hover:underline"
+              >
+                + Add New product
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
@@ -307,7 +322,7 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
               type="submit"
               className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30"
             >
-              Generate Document
+              Save as Draft
             </button>
           </div>
         </form>

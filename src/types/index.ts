@@ -11,6 +11,14 @@ export interface Warehouse {
   created_at: string;
 }
 
+export interface LocationItem {
+  id: string;
+  name: string;
+  code: string;
+  warehouse_id: string;
+  created_at: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -24,6 +32,7 @@ export interface Product {
   category_id: string;
   unit_of_measure: UnitOfMeasure;
   reorder_level: number;
+  cost_price: number; // Per Unit Cost in Rs / $
   image_url?: string;
   created_at: string;
 }
@@ -32,6 +41,7 @@ export interface StockLevel {
   id: string;
   product_id: string;
   warehouse_id: string;
+  location_id?: string;
   quantity: number;
   updated_at: string;
 }
@@ -49,10 +59,12 @@ export interface Operation {
   id: string;
   type: OperationType;
   status: OperationStatus;
-  reference_no: string;
+  reference_no: string; // WH/IN/0001 or WH/OUT/0001
   supplier_or_customer?: string;
   source_warehouse_id?: string;
   destination_warehouse_id?: string;
+  schedule_date: string;
+  responsible_name: string;
   notes?: string;
   created_by: string;
   created_at: string;
@@ -64,6 +76,7 @@ export interface StockLedger {
   id: string;
   product_id: string;
   warehouse_id: string;
+  location_id?: string;
   operation_id?: string;
   reference_no?: string;
   movement_type: MovementType;
@@ -72,21 +85,28 @@ export interface StockLedger {
   performed_by: string;
   performed_at: string;
   notes?: string;
+  from_location?: string;
+  to_location?: string;
 }
 
 export interface User {
   id: string;
   name: string;
+  login_id: string;
   email: string;
   role: 'Inventory Manager' | 'Warehouse Specialist' | 'Admin';
   avatar?: string;
 }
 
 export interface DashboardKPIs {
+  toReceiveCount: number;
+  receiptsLateCount: number;
+  receiptsOperationsCount: number;
+  toDeliverCount: number;
+  deliveriesLateCount: number;
+  deliveriesWaitingCount: number;
+  deliveriesOperationsCount: number;
   totalProductsInStock: number;
   lowStockItemsCount: number;
   outOfStockItemsCount: number;
-  pendingReceiptsCount: number;
-  pendingDeliveriesCount: number;
-  internalTransfersCount: number;
 }

@@ -8,12 +8,13 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { login, signup, sendOtpReset, isAuthenticated, user, logout } = useIMSStore();
+  const { login, signup, sendOtpReset } = useIMSStore();
 
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
+  const [loginId, setLoginId] = useState('alexrivera');
   const [email, setEmail] = useState('alex.rivera@odoo-ims.com');
-  const [password, setPassword] = useState('password123');
-  const [name, setName] = useState('');
+  const [name, setName] = useState('Alex Rivera');
+  const [password, setPassword] = useState('Password123!');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,21 +26,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setMessage(null);
 
     if (mode === 'login') {
-      const ok = login(email, password);
-      if (ok) {
+      const res = login(loginId, password);
+      if (res.success) {
         onClose();
       } else {
-        setError('Invalid credentials. Please enter valid email and password.');
+        setError(res.message || 'Invalid Login Id or Password');
       }
     } else if (mode === 'signup') {
       if (!name) {
         setError('Please enter your full name.');
         return;
       }
-      const ok = signup(email, name, password);
-      if (ok) {
+      const res = signup(loginId, email, name, password);
+      if (res.success) {
         setMessage('Account created successfully!');
         setTimeout(() => onClose(), 800);
+      } else {
+        setError(res.message || 'Signup failed');
       }
     } else if (mode === 'reset') {
       const res = sendOtpReset(email);
@@ -58,19 +61,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </button>
 
         {/* Top Icon */}
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4 mx-auto">
           <KeyRound className="w-6 h-6" />
         </div>
 
-        <h2 className="text-2xl font-bold text-white mb-1">
-          {mode === 'login' && 'Welcome Back'}
+        <h2 className="text-2xl font-extrabold text-white text-center mb-1">
+          {mode === 'login' && 'Sign In to StockSense'}
           {mode === 'signup' && 'Create Your Account'}
           {mode === 'reset' && 'Reset Password via OTP'}
         </h2>
-        <p className="text-xs text-slate-400 mb-6">
-          {mode === 'login' && 'Sign in to manage warehouse inventory, stock transfers, and deliveries.'}
+        <p className="text-xs text-slate-400 text-center mb-6">
+          {mode === 'login' && 'Digitize inventory receipts, delivery orders, and stock transfers.'}
           {mode === 'signup' && 'Register as an Inventory Manager or Warehouse Specialist.'}
-          {mode === 'reset' && 'Enter your email address to receive an instant OTP login link.'}
+          {mode === 'reset' && 'Enter your registered email ID to receive a password reset OTP.'}
         </p>
 
         {error && (
@@ -90,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
               <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -106,31 +109,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Login ID *</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="alexrivera (6-12 chars)"
                 className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl pl-9 pr-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
 
+          {mode !== 'login' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Email ID *</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl pl-9 pr-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          )}
+
           {mode !== 'reset' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-slate-300">Password</label>
+                <label className="block text-xs font-semibold text-slate-300">Password *</label>
                 {mode === 'login' && (
                   <button
                     type="button"
                     onClick={() => setMode('reset')}
                     className="text-xs text-indigo-400 hover:underline"
                   >
-                    Forgot OTP password?
+                    Forgot Password?
                   </button>
                 )}
               </div>
@@ -145,6 +165,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl pl-9 pr-4 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
                 />
               </div>
+              {mode === 'signup' && (
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
+                </span>
+              )}
             </div>
           )}
 
@@ -161,7 +186,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </form>
 
-        {/* Quick Mode Toggle */}
         <div className="mt-6 pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
           {mode === 'login' && (
             <>

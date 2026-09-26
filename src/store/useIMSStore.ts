@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   Warehouse,
+  LocationItem,
   Category,
   Product,
   StockLevel,
@@ -19,19 +20,26 @@ interface IMSState {
   user: User | null;
   isAuthenticated: boolean;
   activeWarehouseId: string; // 'all' or warehouse ID
-  redisCacheTTL: number; // Simulated Redis TTL countdown indicator
+  redisCacheTTL: number;
 
   // Data Collections
   warehouses: Warehouse[];
+  locations: LocationItem[];
   categories: Category[];
   products: Product[];
   stockLevels: StockLevel[];
   operations: Operation[];
   ledger: StockLedger[];
 
+  // Counters for WH/IN/XXXX auto-increment
+  receiptSeq: number;
+  deliverySeq: number;
+  transferSeq: number;
+  adjustmentSeq: number;
+
   // Actions
-  login: (email: string, pass: string) => boolean;
-  signup: (email: string, name: string, pass: string) => boolean;
+  login: (loginIdOrEmail: string, pass: string) => { success: boolean; message?: string };
+  signup: (loginId: string, email: string, name: string, pass: string) => { success: boolean; message?: string };
   logout: () => void;
   sendOtpReset: (email: string) => { success: boolean; message: string };
 
@@ -42,20 +50,26 @@ interface IMSState {
   updateProduct: (id: string, data: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
 
-  // Warehouses
+  // Stock Quick Update (From Stock Page)
+  updateStockDirectly: (productId: string, warehouseId: string, newQty: number, notes?: string) => void;
+
+  // Warehouses & Locations
   addWarehouse: (data: Omit<Warehouse, 'id' | 'created_at'>) => void;
   updateWarehouse: (id: string, data: Partial<Warehouse>) => void;
+  addLocation: (data: Omit<LocationItem, 'id' | 'created_at'>) => void;
+  updateLocation: (id: string, data: Partial<LocationItem>) => void;
 
-  // Operations
+  // Operations Flow
   createOperation: (data: {
     type: OperationType;
     supplier_or_customer?: string;
     source_warehouse_id?: string;
     destination_warehouse_id?: string;
+    schedule_date?: string;
     notes?: string;
     lines: { product_id: string; expected_qty: number; unit_of_measure: UnitOfMeasure }[];
   }) => Operation;
-  updateOperation: (id: string, data: Partial<Operation>) => void;
+  markAsReady: (id: string) => void; // TODO button in Draft
   cancelOperation: (id: string) => void;
   validateOperation: (id: string, actualLines?: { product_id: string; actual_qty: number }[]) => { success: boolean; message: string };
 
@@ -65,6 +79,7 @@ interface IMSState {
   // Analytics Helpers
   getKPIs: () => DashboardKPIs;
   getProductStockTotal: (productId: string) => number;
+  getProductReservedStock: (productId: string) => number;
   getProductWarehouseStock: (productId: string, warehouseId: string) => number;
   
   // Demo Reset
@@ -72,179 +87,186 @@ interface IMSState {
 }
 
 const initialWarehouses: Warehouse[] = [
-  { id: 'wh-1', name: 'Main Storage Hub', code: 'WH-MAIN', location: 'Building A - Sector 4', created_at: '2026-01-15T08:00:00Z' },
-  { id: 'wh-2', name: 'Production Floor', code: 'WH-PROD', location: 'Factory Unit 2', created_at: '2026-01-20T08:00:00Z' },
-  { id: 'wh-3', name: 'Distribution Depot', code: 'WH-DIST', location: 'Logistics Park East', created_at: '2026-02-01T08:00:00Z' },
+  { id: 'wh-1', name: 'Main Storage Hub', code: 'WH', location: 'Building A - Sector 4', created_at: '2026-01-15T08:00:00Z' },
+  { id: 'wh-2', name: 'Production Floor', code: 'PROD', location: 'Factory Unit 2', created_at: '2026-01-20T08:00:00Z' },
+  { id: 'wh-3', name: 'Distribution Depot', code: 'DIST', location: 'Logistics Park East', created_at: '2026-02-01T08:00:00Z' },
+];
+
+const initialLocations: LocationItem[] = [
+  { id: 'loc-1', name: 'WH/Stock1 (Rack A1)', code: 'WH/Stock1', warehouse_id: 'wh-1', created_at: '2026-01-15T08:00:00Z' },
+  { id: 'loc-2', name: 'WH/Stock2 (Rack B2)', code: 'WH/Stock2', warehouse_id: 'wh-1', created_at: '2026-01-15T08:00:00Z' },
+  { id: 'loc-3', name: 'PROD/Floor (Assembly)', code: 'PROD/Floor', warehouse_id: 'wh-2', created_at: '2026-01-20T08:00:00Z' },
+  { id: 'loc-4', name: 'DIST/Output (Loading Bay 4)', code: 'DIST/Bay4', warehouse_id: 'wh-3', created_at: '2026-02-01T08:00:00Z' },
 ];
 
 const initialCategories: Category[] = [
-  { id: 'cat-1', name: 'Raw Materials', description: 'Metals, polymers, and raw bulk stock' },
-  { id: 'cat-2', name: 'Finished Goods', description: 'Assembly outputs ready for dispatch' },
+  { id: 'cat-1', name: 'Furniture & Workstations', description: 'Ergonomic desks, chairs, and conference tables' },
+  { id: 'cat-2', name: 'Raw Materials', description: 'Metals, polymers, and raw bulk stock' },
   { id: 'cat-3', name: 'Electronics & Components', description: 'Sensors, batteries, and harnesses' },
-  { id: 'cat-4', name: 'Office & Furniture', description: 'Workspace equipment and ergonomic seats' },
-  { id: 'cat-5', name: 'Packaging & Supplies', description: 'Boxes, straps, and protective padding' },
+  { id: 'cat-4', name: 'Packaging & Supplies', description: 'Boxes, straps, and protective padding' },
 ];
 
 const initialProducts: Product[] = [
   {
-    id: 'prod-1',
-    name: 'Industrial Steel Rods 12mm',
-    sku: 'RAW-STL-001',
+    id: 'prod-desk',
+    name: 'Executive Ergonomic Desk',
+    sku: 'SKU001',
     category_id: 'cat-1',
-    unit_of_measure: 'kg',
-    reorder_level: 150,
-    image_url: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=300&q=80',
+    unit_of_measure: 'pcs',
+    reorder_level: 20,
+    cost_price: 3000,
+    image_url: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=300&q=80',
     created_at: '2026-02-10T10:00:00Z',
   },
   {
-    id: 'prod-2',
-    name: 'Copper Wire Harness 2.5mm',
-    sku: 'ELE-COP-002',
-    category_id: 'cat-3',
-    unit_of_measure: 'meter',
-    reorder_level: 500,
-    image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=300&q=80',
+    id: 'prod-table',
+    name: 'Conference Meeting Table',
+    sku: 'SKU002',
+    category_id: 'cat-1',
+    unit_of_measure: 'pcs',
+    reorder_level: 15,
+    cost_price: 3000,
+    image_url: 'https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&w=300&q=80',
     created_at: '2026-02-12T11:30:00Z',
   },
   {
-    id: 'prod-3',
-    name: 'Ergonomic Mesh Office Chair',
-    sku: 'FUR-CHR-003',
-    category_id: 'cat-4',
+    id: 'prod-chair',
+    name: 'Mesh High-Back Office Chair',
+    sku: 'SKU003',
+    category_id: 'cat-1',
     unit_of_measure: 'pcs',
-    reorder_level: 15,
+    reorder_level: 25,
+    cost_price: 1500,
     image_url: 'https://images.unsplash.com/photo-1580481072645-022f9a6d1205?auto=format&fit=crop&w=300&q=80',
     created_at: '2026-02-15T09:15:00Z',
   },
   {
-    id: 'prod-4',
-    name: 'Lithium-Ion Battery Pack 100Ah',
-    sku: 'ELE-BAT-004',
-    category_id: 'cat-3',
-    unit_of_measure: 'pcs',
-    reorder_level: 25,
-    image_url: 'https://images.unsplash.com/photo-1619725002198-6a689b72f41d?auto=format&fit=crop&w=300&q=80',
+    id: 'prod-steel',
+    name: 'Industrial Steel Rods 12mm',
+    sku: 'SKU004',
+    category_id: 'cat-2',
+    unit_of_measure: 'kg',
+    reorder_level: 150,
+    cost_price: 450,
+    image_url: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=300&q=80',
     created_at: '2026-02-18T14:20:00Z',
   },
   {
-    id: 'prod-5',
-    name: 'Corrugated Heavy Duty Box XL',
-    sku: 'PKG-BOX-005',
-    category_id: 'cat-5',
-    unit_of_measure: 'box',
-    reorder_level: 300,
-    image_url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=80',
+    id: 'prod-wire',
+    name: 'Copper Wire Harness 2.5mm',
+    sku: 'SKU005',
+    category_id: 'cat-3',
+    unit_of_measure: 'meter',
+    reorder_level: 500,
+    cost_price: 120,
+    image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=300&q=80',
     created_at: '2026-02-20T16:00:00Z',
-  },
-  {
-    id: 'prod-6',
-    name: 'Hydraulic Oil ISO 46',
-    sku: 'RAW-OIL-006',
-    category_id: 'cat-1',
-    unit_of_measure: 'litre',
-    reorder_level: 40,
-    image_url: 'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?auto=format&fit=crop&w=300&q=80',
-    created_at: '2026-02-22T08:45:00Z',
   },
 ];
 
 const initialStockLevels: StockLevel[] = [
-  // prod-1: total 420 kg
-  { id: 'sl-1', product_id: 'prod-1', warehouse_id: 'wh-1', quantity: 300, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-2', product_id: 'prod-1', warehouse_id: 'wh-2', quantity: 120, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-3', product_id: 'prod-1', warehouse_id: 'wh-3', quantity: 0, updated_at: '2026-09-25T10:00:00Z' },
+  // Desk: On Hand = 80, Reserved = 40 (Free to Use = 40)
+  { id: 'sl-1', product_id: 'prod-desk', warehouse_id: 'wh-1', location_id: 'loc-1', quantity: 80, updated_at: '2026-09-25T10:00:00Z' },
 
-  // prod-2: total 1200 m
-  { id: 'sl-4', product_id: 'prod-2', warehouse_id: 'wh-1', quantity: 800, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-5', product_id: 'prod-2', warehouse_id: 'wh-2', quantity: 400, updated_at: '2026-09-25T10:00:00Z' },
+  // Table: On Hand = 80, Free to Use = 80
+  { id: 'sl-2', product_id: 'prod-table', warehouse_id: 'wh-1', location_id: 'loc-1', quantity: 80, updated_at: '2026-09-25T10:00:00Z' },
 
-  // prod-3: total 8 pcs (LOW STOCK ALERT! reorder level = 15)
-  { id: 'sl-6', product_id: 'prod-3', warehouse_id: 'wh-1', quantity: 5, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-7', product_id: 'prod-3', warehouse_id: 'wh-2', quantity: 3, updated_at: '2026-09-25T10:00:00Z' },
+  // Mesh Chair: On Hand = 12 (LOW STOCK ALERT!)
+  { id: 'sl-3', product_id: 'prod-chair', warehouse_id: 'wh-1', location_id: 'loc-2', quantity: 12, updated_at: '2026-09-25T10:00:00Z' },
 
-  // prod-4: total 0 pcs (OUT OF STOCK ALERT! reorder level = 25)
-  { id: 'sl-8', product_id: 'prod-4', warehouse_id: 'wh-1', quantity: 0, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-9', product_id: 'prod-4', warehouse_id: 'wh-2', quantity: 0, updated_at: '2026-09-25T10:00:00Z' },
+  // Steel Rods: On Hand = 420 kg
+  { id: 'sl-4', product_id: 'prod-steel', warehouse_id: 'wh-1', location_id: 'loc-1', quantity: 300, updated_at: '2026-09-25T10:00:00Z' },
+  { id: 'sl-5', product_id: 'prod-steel', warehouse_id: 'wh-2', location_id: 'loc-3', quantity: 120, updated_at: '2026-09-25T10:00:00Z' },
 
-  // prod-5: total 850 boxes
-  { id: 'sl-10', product_id: 'prod-5', warehouse_id: 'wh-1', quantity: 500, updated_at: '2026-09-25T10:00:00Z' },
-  { id: 'sl-11', product_id: 'prod-5', warehouse_id: 'wh-3', quantity: 350, updated_at: '2026-09-25T10:00:00Z' },
-
-  // prod-6: total 15 litres (LOW STOCK ALERT! reorder level = 40)
-  { id: 'sl-12', product_id: 'prod-6', warehouse_id: 'wh-1', quantity: 15, updated_at: '2026-09-25T10:00:00Z' },
+  // Copper Wire: On Hand = 1200 m
+  { id: 'sl-6', product_id: 'prod-wire', warehouse_id: 'wh-1', location_id: 'loc-2', quantity: 800, updated_at: '2026-09-25T10:00:00Z' },
+  { id: 'sl-7', product_id: 'prod-wire', warehouse_id: 'wh-2', location_id: 'loc-3', quantity: 400, updated_at: '2026-09-25T10:00:00Z' },
 ];
+
+const todayStr = new Date().toISOString().slice(0, 10);
+const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 const initialOperations: Operation[] = [
   {
     id: 'op-1',
     type: 'receipt',
     status: 'ready',
-    reference_no: 'REC-20260926-001',
-    supplier_or_customer: 'Apex Metal & Wire Supplies Ltd',
+    reference_no: 'WH/IN/0001',
+    supplier_or_customer: 'Apex Metal Supplies Ltd',
     destination_warehouse_id: 'wh-1',
-    notes: 'Urgent incoming batch of raw steel and copper wire.',
-    created_by: 'Alex Rivera (Inventory Manager)',
+    schedule_date: tomorrowStr,
+    responsible_name: 'Alex Rivera',
+    notes: 'Incoming shipment of steel rods and wiring.',
+    created_by: 'Alex Rivera',
     created_at: '2026-09-26T08:15:00Z',
     lines: [
-      { id: 'line-1', operation_id: 'op-1', product_id: 'prod-1', expected_qty: 250, unit_of_measure: 'kg' },
-      { id: 'line-2', operation_id: 'op-1', product_id: 'prod-2', expected_qty: 600, unit_of_measure: 'meter' },
+      { id: 'line-1', operation_id: 'op-1', product_id: 'prod-steel', expected_qty: 150, unit_of_measure: 'kg' },
+      { id: 'line-2', operation_id: 'op-1', product_id: 'prod-wire', expected_qty: 400, unit_of_measure: 'meter' },
     ],
   },
   {
     id: 'op-2',
-    type: 'delivery',
-    status: 'waiting',
-    reference_no: 'DEL-20260926-001',
-    supplier_or_customer: 'Volt Motors Tech Inc',
-    source_warehouse_id: 'wh-1',
-    notes: 'Awaiting stock replenishment of battery packs before packing.',
-    created_by: 'Sarah Connor (Warehouse Specialist)',
-    created_at: '2026-09-26T09:00:00Z',
+    type: 'receipt',
+    status: 'draft',
+    reference_no: 'WH/IN/0002',
+    supplier_or_customer: 'Global Cartons Corp',
+    destination_warehouse_id: 'wh-1',
+    schedule_date: yesterdayStr, // Late receipt!
+    responsible_name: 'Alex Rivera',
+    notes: 'Late delivery of raw packaging stock.',
+    created_by: 'Alex Rivera',
+    created_at: '2026-09-25T14:30:00Z',
     lines: [
-      { id: 'line-3', operation_id: 'op-2', product_id: 'prod-4', expected_qty: 10, unit_of_measure: 'pcs' },
+      { id: 'line-3', operation_id: 'op-2', product_id: 'prod-steel', expected_qty: 100, unit_of_measure: 'kg' },
     ],
   },
   {
     id: 'op-3',
-    type: 'transfer',
+    type: 'delivery',
     status: 'ready',
-    reference_no: 'TRF-20260926-001',
+    reference_no: 'WH/OUT/0001',
+    supplier_or_customer: 'TechCorp HQ',
     source_warehouse_id: 'wh-1',
-    destination_warehouse_id: 'wh-2',
-    notes: 'Transfer raw materials to factory floor for shift B production.',
-    created_by: 'Alex Rivera (Inventory Manager)',
-    created_at: '2026-09-26T09:45:00Z',
+    schedule_date: tomorrowStr,
+    responsible_name: 'Alex Rivera',
+    notes: 'Sales order dispatch for 40 desks.',
+    created_by: 'Alex Rivera',
+    created_at: '2026-09-26T09:00:00Z',
     lines: [
-      { id: 'line-4', operation_id: 'op-3', product_id: 'prod-1', expected_qty: 100, unit_of_measure: 'kg' },
+      { id: 'line-4', operation_id: 'op-3', product_id: 'prod-desk', expected_qty: 40, unit_of_measure: 'pcs' },
     ],
   },
   {
     id: 'op-4',
-    type: 'receipt',
-    status: 'done',
-    reference_no: 'REC-20260925-002',
-    supplier_or_customer: 'Global Cartons Corp',
-    destination_warehouse_id: 'wh-3',
-    notes: 'Bulk box shipment verified and checked into stock.',
-    created_by: 'Sarah Connor (Warehouse Specialist)',
-    created_at: '2026-09-25T14:30:00Z',
-    validated_at: '2026-09-25T15:10:00Z',
+    type: 'delivery',
+    status: 'waiting',
+    reference_no: 'WH/OUT/0002',
+    supplier_or_customer: 'Volt Motors Inc',
+    source_warehouse_id: 'wh-1',
+    schedule_date: yesterdayStr, // Late & Waiting delivery!
+    responsible_name: 'Alex Rivera',
+    notes: 'Awaiting stock replenishment before dispatch.',
+    created_by: 'Alex Rivera',
+    created_at: '2026-09-25T11:00:00Z',
     lines: [
-      { id: 'line-5', operation_id: 'op-4', product_id: 'prod-5', expected_qty: 500, actual_qty: 500, unit_of_measure: 'box' },
+      { id: 'line-5', operation_id: 'op-4', product_id: 'prod-chair', expected_qty: 30, unit_of_measure: 'pcs' },
     ],
   },
   {
     id: 'op-5',
-    type: 'adjustment',
+    type: 'receipt',
     status: 'done',
-    reference_no: 'ADJ-20260924-001',
-    source_warehouse_id: 'wh-1',
-    notes: 'Physical audit correction: 2 office chairs damaged during warehouse re-arrangement.',
-    created_by: 'Alex Rivera (Inventory Manager)',
-    created_at: '2026-09-24T11:00:00Z',
-    validated_at: '2026-09-24T11:05:00Z',
+    reference_no: 'WH/IN/0000',
+    supplier_or_customer: 'Office Mart Vendor',
+    destination_warehouse_id: 'wh-1',
+    schedule_date: yesterdayStr,
+    responsible_name: 'Alex Rivera',
+    created_by: 'Alex Rivera',
+    created_at: '2026-09-24T10:00:00Z',
+    validated_at: '2026-09-24T10:30:00Z',
     lines: [
-      { id: 'line-6', operation_id: 'op-5', product_id: 'prod-3', expected_qty: 5, actual_qty: 5, unit_of_measure: 'pcs' },
+      { id: 'line-6', operation_id: 'op-5', product_id: 'prod-desk', expected_qty: 80, actual_qty: 80, unit_of_measure: 'pcs' },
     ],
   },
 ];
@@ -252,68 +274,38 @@ const initialOperations: Operation[] = [
 const initialLedger: StockLedger[] = [
   {
     id: 'led-1',
-    product_id: 'prod-5',
-    warehouse_id: 'wh-3',
-    operation_id: 'op-4',
-    reference_no: 'REC-20260925-002',
+    product_id: 'prod-desk',
+    warehouse_id: 'wh-1',
+    operation_id: 'op-5',
+    reference_no: 'WH/IN/0000',
     movement_type: 'IN',
-    quantity_change: 500,
-    quantity_after: 500,
-    performed_by: 'Sarah Connor',
-    performed_at: '2026-09-25T15:10:00Z',
-    notes: 'Receipt validation from Global Cartons Corp',
+    quantity_change: 80,
+    quantity_after: 80,
+    performed_by: 'Alex Rivera',
+    performed_at: '2026-09-24T10:30:00Z',
+    from_location: 'Vendor: Office Mart',
+    to_location: 'WH/Stock1',
+    notes: 'Initial verified stock receipt of executive desks',
   },
   {
     id: 'led-2',
-    product_id: 'prod-3',
-    warehouse_id: 'wh-1',
-    operation_id: 'op-5',
-    reference_no: 'ADJ-20260924-001',
-    movement_type: 'ADJUST',
-    quantity_change: -2,
-    quantity_after: 5,
-    performed_by: 'Alex Rivera',
-    performed_at: '2026-09-24T11:05:00Z',
-    notes: 'Physical count adjustment (-2 damaged units)',
-  },
-  {
-    id: 'led-3',
-    product_id: 'prod-1',
+    product_id: 'prod-table',
     warehouse_id: 'wh-1',
     movement_type: 'IN',
-    quantity_change: 300,
-    quantity_after: 300,
+    quantity_change: 80,
+    quantity_after: 80,
     performed_by: 'System Seed',
     performed_at: '2026-09-20T08:00:00Z',
-    notes: 'Initial inventory setup count',
-  },
-  {
-    id: 'led-4',
-    product_id: 'prod-2',
-    warehouse_id: 'wh-1',
-    movement_type: 'IN',
-    quantity_change: 800,
-    quantity_after: 800,
-    performed_by: 'System Seed',
-    performed_at: '2026-09-20T08:05:00Z',
-    notes: 'Initial inventory setup count',
-  },
-  {
-    id: 'led-5',
-    product_id: 'prod-6',
-    warehouse_id: 'wh-1',
-    movement_type: 'IN',
-    quantity_change: 15,
-    quantity_after: 15,
-    performed_by: 'System Seed',
-    performed_at: '2026-09-22T09:00:00Z',
-    notes: 'Initial inventory setup count',
+    from_location: 'Vendor: Furniture Factory',
+    to_location: 'WH/Stock1',
+    notes: 'Initial inventory count',
   },
 ];
 
 const defaultUser: User = {
   id: 'usr-1',
   name: 'Alex Rivera',
+  login_id: 'alexrivera',
   email: 'alex.rivera@odoo-ims.com',
   role: 'Inventory Manager',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
@@ -328,49 +320,73 @@ export const useIMSStore = create<IMSState>()(
       redisCacheTTL: 60,
 
       warehouses: initialWarehouses,
+      locations: initialLocations,
       categories: initialCategories,
       products: initialProducts,
       stockLevels: initialStockLevels,
       operations: initialOperations,
       ledger: initialLedger,
 
-      login: (email, pass) => {
-        if (email && pass) {
-          set({
-            isAuthenticated: true,
-            user: {
-              id: 'usr-1',
-              name: email.split('@')[0].replace('.', ' ').toUpperCase(),
-              email,
-              role: 'Inventory Manager',
-              avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-            },
-          });
-          return true;
+      receiptSeq: 3,
+      deliverySeq: 3,
+      transferSeq: 1,
+      adjustmentSeq: 1,
+
+      login: (loginIdOrEmail, pass) => {
+        if (!loginIdOrEmail || !pass) {
+          return { success: false, message: 'Invalid Login Id or Password' };
         }
-        return false;
+        // Demo credential check
+        set({
+          isAuthenticated: true,
+          user: {
+            id: 'usr-1',
+            name: loginIdOrEmail.includes('@')
+              ? loginIdOrEmail.split('@')[0].toUpperCase()
+              : loginIdOrEmail.toUpperCase(),
+            login_id: loginIdOrEmail,
+            email: loginIdOrEmail.includes('@') ? loginIdOrEmail : `${loginIdOrEmail}@odoo-ims.com`,
+            role: 'Inventory Manager',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          },
+        });
+        return { success: true };
       },
 
-      signup: (email, name, pass) => {
-        if (email && name && pass) {
-          set({
-            isAuthenticated: true,
-            user: {
-              id: `usr-${Date.now()}`,
-              name,
-              email,
-              role: 'Inventory Manager',
-            },
-          });
-          return true;
+      signup: (loginId, email, name, pass) => {
+        // Validation rules from wireframe
+        if (loginId.length < 6 || loginId.length > 12) {
+          return { success: false, message: 'Login ID length must be between 6–12 characters.' };
         }
-        return false;
+        const hasUpper = /[A-Z]/.test(pass);
+        const hasLower = /[a-z]/.test(pass);
+        const hasDigit = /[0-9]/.test(pass);
+        const hasSpecial = /[^A-Za-z0-9]/.test(pass);
+        if (pass.length < 8 || !hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+          return {
+            success: false,
+            message:
+              'Password must contain at least one uppercase, one lowercase, one digit, one special character, and be at least 8 characters long.',
+          };
+        }
+
+        set({
+          isAuthenticated: true,
+          user: {
+            id: `usr-${Date.now()}`,
+            name,
+            login_id: loginId,
+            email,
+            role: 'Inventory Manager',
+          },
+        });
+        return { success: true };
       },
 
       logout: () => set({ isAuthenticated: false, user: null }),
 
       sendOtpReset: (email) => {
-        return { success: true, message: `Password reset OTP has been sent to ${email}` };
+        return { success: true, message: `OTP password reset code sent to ${email}.` };
       },
 
       setActiveWarehouse: (id) => set({ activeWarehouseId: id, redisCacheTTL: 60 }),
@@ -384,8 +400,8 @@ export const useIMSStore = create<IMSState>()(
           created_at: new Date().toISOString(),
         };
 
-        const newStockLevels: StockLevel[] = [...get().stockLevels];
-        const newLedger: StockLedger[] = [...get().ledger];
+        const newStockLevels = [...get().stockLevels];
+        const newLedger = [...get().ledger];
 
         initialStocks.forEach((st) => {
           newStockLevels.push({
@@ -404,8 +420,10 @@ export const useIMSStore = create<IMSState>()(
               movement_type: 'IN',
               quantity_change: st.quantity,
               quantity_after: st.quantity,
-              performed_by: get().user?.name || 'Manager',
+              performed_by: get().user?.name || 'Alex Rivera',
               performed_at: new Date().toISOString(),
+              from_location: 'Vendor Creation',
+              to_location: 'WH/Stock1',
               notes: 'Initial product stock creation',
             });
           }
@@ -434,14 +452,57 @@ export const useIMSStore = create<IMSState>()(
         });
       },
 
-      // Warehouses
+      // Direct Stock Update from Top Nav Stock Page
+      updateStockDirectly: (productId, warehouseId, newQty, notes = 'Direct stock page manual adjustment') => {
+        const state = get();
+        const now = new Date().toISOString();
+        const performedBy = state.user?.name || 'Alex Rivera';
+
+        const stockIndex = state.stockLevels.findIndex(
+          (s) => s.product_id === productId && s.warehouse_id === warehouseId
+        );
+        const oldQty = stockIndex >= 0 ? Number(state.stockLevels[stockIndex].quantity) : 0;
+        const delta = newQty - oldQty;
+
+        const updatedStockLevels = [...state.stockLevels];
+        if (stockIndex >= 0) {
+          updatedStockLevels[stockIndex].quantity = newQty;
+          updatedStockLevels[stockIndex].updated_at = now;
+        } else {
+          updatedStockLevels.push({
+            id: `sl-${Date.now()}`,
+            product_id: productId,
+            warehouse_id: warehouseId,
+            quantity: newQty,
+            updated_at: now,
+          });
+        }
+
+        const newLedger: StockLedger = {
+          id: `led-${Date.now()}`,
+          product_id: productId,
+          warehouse_id: warehouseId,
+          movement_type: delta >= 0 ? 'IN' : 'OUT',
+          quantity_change: delta,
+          quantity_after: newQty,
+          performed_by: performedBy,
+          performed_at: now,
+          from_location: delta >= 0 ? 'Manual Adjustment' : 'WH/Stock1',
+          to_location: delta >= 0 ? 'WH/Stock1' : 'Manual Adjustment',
+          notes: `${notes} (${delta >= 0 ? '+' : ''}${delta})`,
+        };
+
+        set({
+          stockLevels: updatedStockLevels,
+          ledger: [newLedger, ...state.ledger],
+          redisCacheTTL: 60,
+        });
+      },
+
+      // Warehouses & Locations
       addWarehouse: (data) => {
         const id = `wh-${Date.now()}`;
-        const newWh: Warehouse = {
-          ...data,
-          id,
-          created_at: new Date().toISOString(),
-        };
+        const newWh: Warehouse = { ...data, id, created_at: new Date().toISOString() };
         set({ warehouses: [...get().warehouses, newWh], redisCacheTTL: 60 });
       },
 
@@ -452,29 +513,59 @@ export const useIMSStore = create<IMSState>()(
         });
       },
 
-      // Operations
-      createOperation: (data) => {
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const randomNum = Math.floor(100 + Math.random() * 900);
-        const prefixMap: Record<OperationType, string> = {
-          receipt: 'REC',
-          delivery: 'DEL',
-          transfer: 'TRF',
-          adjustment: 'ADJ',
-        };
-        const refNo = `${prefixMap[data.type]}-${dateStr}-${randomNum}`;
-        const opId = `op-${Date.now()}`;
+      addLocation: (data) => {
+        const id = `loc-${Date.now()}`;
+        const newLoc: LocationItem = { ...data, id, created_at: new Date().toISOString() };
+        set({ locations: [...get().locations, newLoc], redisCacheTTL: 60 });
+      },
 
+      updateLocation: (id, data) => {
+        set({
+          locations: get().locations.map((l) => (l.id === id ? { ...l, ...data } : l)),
+          redisCacheTTL: 60,
+        });
+      },
+
+      // Operations Flow
+      createOperation: (data) => {
+        const state = get();
+        const wh = state.warehouses.find((w) => w.id === (data.source_warehouse_id || data.destination_warehouse_id));
+        const whCode = wh ? wh.code : 'WH';
+
+        let refNo = '';
+        let seqNumber = 1;
+
+        if (data.type === 'receipt') {
+          seqNumber = state.receiptSeq;
+          refNo = `${whCode}/IN/${String(seqNumber).padStart(4, '0')}`;
+          set({ receiptSeq: seqNumber + 1 });
+        } else if (data.type === 'delivery') {
+          seqNumber = state.deliverySeq;
+          refNo = `${whCode}/OUT/${String(seqNumber).padStart(4, '0')}`;
+          set({ deliverySeq: seqNumber + 1 });
+        } else if (data.type === 'transfer') {
+          seqNumber = state.transferSeq;
+          refNo = `${whCode}/TRF/${String(seqNumber).padStart(4, '0')}`;
+          set({ transferSeq: seqNumber + 1 });
+        } else {
+          seqNumber = state.adjustmentSeq;
+          refNo = `${whCode}/ADJ/${String(seqNumber).padStart(4, '0')}`;
+          set({ adjustmentSeq: seqNumber + 1 });
+        }
+
+        const opId = `op-${Date.now()}`;
         const newOp: Operation = {
           id: opId,
           type: data.type,
-          status: 'ready',
+          status: 'draft',
           reference_no: refNo,
           supplier_or_customer: data.supplier_or_customer,
           source_warehouse_id: data.source_warehouse_id,
           destination_warehouse_id: data.destination_warehouse_id,
+          schedule_date: data.schedule_date || new Date().toISOString().slice(0, 10),
+          responsible_name: state.user?.name || 'Alex Rivera',
           notes: data.notes,
-          created_by: get().user?.name || 'Inventory Specialist',
+          created_by: state.user?.name || 'Alex Rivera',
           created_at: new Date().toISOString(),
           lines: data.lines.map((l, idx) => ({
             id: `line-${opId}-${idx}`,
@@ -485,13 +576,13 @@ export const useIMSStore = create<IMSState>()(
           })),
         };
 
-        set({ operations: [newOp, ...get().operations], redisCacheTTL: 60 });
+        set({ operations: [newOp, ...state.operations], redisCacheTTL: 60 });
         return newOp;
       },
 
-      updateOperation: (id, data) => {
+      markAsReady: (id) => {
         set({
-          operations: get().operations.map((op) => (op.id === id ? { ...op, ...data } : op)),
+          operations: get().operations.map((op) => (op.id === id ? { ...op, status: 'ready' } : op)),
           redisCacheTTL: 60,
         });
       },
@@ -507,13 +598,13 @@ export const useIMSStore = create<IMSState>()(
         const state = get();
         const op = state.operations.find((o) => o.id === id);
 
-        if (!op) return { success: false, message: 'Operation not found' };
-        if (op.status === 'done') return { success: false, message: 'Operation is already validated and done' };
-        if (op.status === 'canceled') return { success: false, message: 'Cannot validate a canceled operation' };
+        if (!op) return { success: false, message: 'Operation document not found' };
+        if (op.status === 'done') return { success: false, message: 'Operation is already validated' };
+        if (op.status === 'canceled') return { success: false, message: 'Cannot validate a canceled document' };
 
         const updatedStockLevels = [...state.stockLevels];
         const newLedgerEntries: StockLedger[] = [...state.ledger];
-        const performedBy = state.user?.name || 'Warehouse Specialist';
+        const performedBy = state.user?.name || 'Alex Rivera';
         const now = new Date().toISOString();
 
         const updatedLines = op.lines.map((line) => {
@@ -522,15 +613,11 @@ export const useIMSStore = create<IMSState>()(
           return { ...line, actual_qty: finalQty };
         });
 
-        // Business logic based on type
         for (const line of updatedLines) {
           const qty = line.actual_qty ?? line.expected_qty;
 
           if (op.type === 'receipt') {
-            // Receipt: stock increases in destination warehouse
-            const destWh = op.destination_warehouse_id;
-            if (!destWh) continue;
-
+            const destWh = op.destination_warehouse_id || 'wh-1';
             let stockIndex = updatedStockLevels.findIndex(
               (s) => s.product_id === line.product_id && s.warehouse_id === destWh
             );
@@ -561,13 +648,12 @@ export const useIMSStore = create<IMSState>()(
               quantity_after: currentQty + qty,
               performed_by: performedBy,
               performed_at: now,
-              notes: `Receipt from ${op.supplier_or_customer || 'Supplier'}`,
+              from_location: op.supplier_or_customer || 'Vendor',
+              to_location: 'WH/Stock1',
+              notes: `Receipt validation (${op.reference_no})`,
             });
           } else if (op.type === 'delivery') {
-            // Delivery: stock decreases in source warehouse
-            const srcWh = op.source_warehouse_id;
-            if (!srcWh) continue;
-
+            const srcWh = op.source_warehouse_id || 'wh-1';
             let stockIndex = updatedStockLevels.findIndex(
               (s) => s.product_id === line.product_id && s.warehouse_id === srcWh
             );
@@ -577,14 +663,6 @@ export const useIMSStore = create<IMSState>()(
               currentQty = Number(updatedStockLevels[stockIndex].quantity);
               updatedStockLevels[stockIndex].quantity = Math.max(0, currentQty - qty);
               updatedStockLevels[stockIndex].updated_at = now;
-            } else {
-              updatedStockLevels.push({
-                id: `sl-${Date.now()}-${Math.random()}`,
-                product_id: line.product_id,
-                warehouse_id: srcWh,
-                quantity: 0,
-                updated_at: now,
-              });
             }
 
             const afterQty = Math.max(0, currentQty - qty);
@@ -599,13 +677,13 @@ export const useIMSStore = create<IMSState>()(
               quantity_after: afterQty,
               performed_by: performedBy,
               performed_at: now,
-              notes: `Delivery order for ${op.supplier_or_customer || 'Customer'}`,
+              from_location: 'WH/Stock1',
+              to_location: op.supplier_or_customer || 'Customer',
+              notes: `Delivery order dispatch (${op.reference_no})`,
             });
           } else if (op.type === 'transfer') {
-            // Transfer: source warehouse decrease (-qty), destination warehouse increase (+qty)
-            const srcWh = op.source_warehouse_id;
-            const destWh = op.destination_warehouse_id;
-            if (!srcWh || !destWh) continue;
+            const srcWh = op.source_warehouse_id || 'wh-1';
+            const destWh = op.destination_warehouse_id || 'wh-2';
 
             // Source Out
             let srcIndex = updatedStockLevels.findIndex(
@@ -620,7 +698,7 @@ export const useIMSStore = create<IMSState>()(
             }
 
             newLedgerEntries.unshift({
-              id: `led-${Date.now()}-src-${Math.random()}`,
+              id: `led-${Date.now()}-src`,
               product_id: line.product_id,
               warehouse_id: srcWh,
               operation_id: op.id,
@@ -630,7 +708,9 @@ export const useIMSStore = create<IMSState>()(
               quantity_after: srcAfter,
               performed_by: performedBy,
               performed_at: now,
-              notes: `Internal Transfer OUT to warehouse ${destWh}`,
+              from_location: 'WH/Stock1',
+              to_location: 'PROD/Floor',
+              notes: `Transfer OUT to ${destWh}`,
             });
 
             // Destination In
@@ -654,7 +734,7 @@ export const useIMSStore = create<IMSState>()(
             }
 
             newLedgerEntries.unshift({
-              id: `led-${Date.now()}-dest-${Math.random()}`,
+              id: `led-${Date.now()}-dest`,
               product_id: line.product_id,
               warehouse_id: destWh,
               operation_id: op.id,
@@ -664,7 +744,9 @@ export const useIMSStore = create<IMSState>()(
               quantity_after: destAfter,
               performed_by: performedBy,
               performed_at: now,
-              notes: `Internal Transfer IN from warehouse ${srcWh}`,
+              from_location: 'WH/Stock1',
+              to_location: 'PROD/Floor',
+              notes: `Transfer IN from ${srcWh}`,
             });
           }
         }
@@ -685,16 +767,15 @@ export const useIMSStore = create<IMSState>()(
 
       createStockAdjustment: (productId, warehouseId, countedQty, notes) => {
         const state = get();
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const randomNum = Math.floor(100 + Math.random() * 900);
-        const refNo = `ADJ-${dateStr}-${randomNum}`;
+        const seqNumber = state.adjustmentSeq;
+        const refNo = `WH/ADJ/${String(seqNumber).padStart(4, '0')}`;
+        set({ adjustmentSeq: seqNumber + 1 });
         const now = new Date().toISOString();
-        const performedBy = state.user?.name || 'Inventory Specialist';
+        const performedBy = state.user?.name || 'Alex Rivera';
 
         const product = state.products.find((p) => p.id === productId);
         const uom = product ? product.unit_of_measure : 'pcs';
 
-        // Current recorded qty
         const stockIndex = state.stockLevels.findIndex(
           (s) => s.product_id === productId && s.warehouse_id === warehouseId
         );
@@ -722,7 +803,9 @@ export const useIMSStore = create<IMSState>()(
           status: 'done',
           reference_no: refNo,
           source_warehouse_id: warehouseId,
-          notes: `Stock adjustment count: recorded ${recordedQty}, counted ${countedQty}. Delta: ${delta >= 0 ? '+' : ''}${delta}. ${notes}`,
+          schedule_date: todayStr,
+          responsible_name: performedBy,
+          notes: `Stock count adjustment: recorded ${recordedQty}, counted ${countedQty}. Delta: ${delta >= 0 ? '+' : ''}${delta}. ${notes}`,
           created_by: performedBy,
           created_at: now,
           validated_at: now,
@@ -749,6 +832,8 @@ export const useIMSStore = create<IMSState>()(
           quantity_after: countedQty,
           performed_by: performedBy,
           performed_at: now,
+          from_location: 'Audit Count',
+          to_location: 'WH/Stock1',
           notes: notes || `Stock Adjustment (${delta >= 0 ? '+' : ''}${delta} ${uom})`,
         };
 
@@ -760,7 +845,6 @@ export const useIMSStore = create<IMSState>()(
         });
       },
 
-      // Analytics Helpers
       getProductStockTotal: (productId) => {
         const { stockLevels, activeWarehouseId } = get();
         return stockLevels
@@ -770,6 +854,16 @@ export const useIMSStore = create<IMSState>()(
               (activeWarehouseId === 'all' || sl.warehouse_id === activeWarehouseId)
           )
           .reduce((sum, item) => sum + Number(item.quantity), 0);
+      },
+
+      getProductReservedStock: (productId) => {
+        const { operations } = get();
+        // Sum expected quantities for ready/waiting delivery orders
+        return operations
+          .filter((op) => op.type === 'delivery' && (op.status === 'ready' || op.status === 'waiting' || op.status === 'draft'))
+          .flatMap((op) => op.lines)
+          .filter((l) => l.product_id === productId)
+          .reduce((sum, l) => sum + Number(l.expected_qty), 0);
       },
 
       getProductWarehouseStock: (productId, warehouseId) => {
@@ -783,7 +877,27 @@ export const useIMSStore = create<IMSState>()(
       getKPIs: () => {
         const { products, stockLevels, operations, activeWarehouseId } = get();
 
-        // Calculate total products in stock (qty > 0)
+        const today = new Date().toISOString().slice(0, 10);
+
+        const activeOps = operations.filter((op) => {
+          if (activeWarehouseId === 'all') return true;
+          return op.source_warehouse_id === activeWarehouseId || op.destination_warehouse_id === activeWarehouseId;
+        });
+
+        // Receipts KPI Card logic
+        const receiptOps = activeOps.filter((o) => o.type === 'receipt' && o.status !== 'done' && o.status !== 'canceled');
+        const toReceiveCount = receiptOps.length;
+        const receiptsLateCount = receiptOps.filter((o) => o.schedule_date < today).length;
+        const receiptsOperationsCount = receiptOps.filter((o) => o.schedule_date > today).length;
+
+        // Deliveries KPI Card logic
+        const deliveryOps = activeOps.filter((o) => o.type === 'delivery' && o.status !== 'done' && o.status !== 'canceled');
+        const toDeliverCount = deliveryOps.length;
+        const deliveriesLateCount = deliveryOps.filter((o) => o.schedule_date < today).length;
+        const deliveriesWaitingCount = deliveryOps.filter((o) => o.status === 'waiting').length;
+        const deliveriesOperationsCount = deliveryOps.filter((o) => o.schedule_date > today).length;
+
+        // Stock totals
         let totalProductsInStock = 0;
         let lowStockItemsCount = 0;
         let outOfStockItemsCount = 0;
@@ -797,51 +911,38 @@ export const useIMSStore = create<IMSState>()(
             )
             .reduce((sum, item) => sum + Number(item.quantity), 0);
 
-          if (totalQty > 0) {
-            totalProductsInStock += 1;
-          }
-          if (totalQty === 0) {
-            outOfStockItemsCount += 1;
-          } else if (totalQty <= p.reorder_level) {
-            lowStockItemsCount += 1;
-          }
+          if (totalQty > 0) totalProductsInStock += 1;
+          if (totalQty === 0) outOfStockItemsCount += 1;
+          else if (totalQty <= p.reorder_level) lowStockItemsCount += 1;
         });
-
-        const activeOps = operations.filter((op) => {
-          if (activeWarehouseId === 'all') return true;
-          return op.source_warehouse_id === activeWarehouseId || op.destination_warehouse_id === activeWarehouseId;
-        });
-
-        const pendingReceiptsCount = activeOps.filter(
-          (op) => op.type === 'receipt' && (op.status === 'ready' || op.status === 'waiting' || op.status === 'draft')
-        ).length;
-
-        const pendingDeliveriesCount = activeOps.filter(
-          (op) => op.type === 'delivery' && (op.status === 'ready' || op.status === 'waiting' || op.status === 'draft')
-        ).length;
-
-        const internalTransfersCount = activeOps.filter(
-          (op) => op.type === 'transfer' && op.status !== 'done' && op.status !== 'canceled'
-        ).length;
 
         return {
+          toReceiveCount,
+          receiptsLateCount,
+          receiptsOperationsCount,
+          toDeliverCount,
+          deliveriesLateCount,
+          deliveriesWaitingCount,
+          deliveriesOperationsCount,
           totalProductsInStock,
           lowStockItemsCount,
           outOfStockItemsCount,
-          pendingReceiptsCount,
-          pendingDeliveriesCount,
-          internalTransfersCount,
         };
       },
 
       resetToDefaults: () => {
         set({
           warehouses: initialWarehouses,
+          locations: initialLocations,
           categories: initialCategories,
           products: initialProducts,
           stockLevels: initialStockLevels,
           operations: initialOperations,
           ledger: initialLedger,
+          receiptSeq: 3,
+          deliverySeq: 3,
+          transferSeq: 1,
+          adjustmentSeq: 1,
           activeWarehouseId: 'all',
           redisCacheTTL: 60,
         });

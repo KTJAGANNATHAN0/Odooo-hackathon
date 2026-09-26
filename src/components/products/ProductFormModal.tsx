@@ -21,6 +21,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [categoryId, setCategoryId] = useState('');
   const [unitOfMeasure, setUnitOfMeasure] = useState<UnitOfMeasure>('pcs');
   const [reorderLevel, setReorderLevel] = useState<number>(10);
+  const [costPrice, setCostPrice] = useState<number>(3000);
   const [imageUrl, setImageUrl] = useState('');
   
   // Initial stocks for new product
@@ -33,6 +34,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setCategoryId(productToEdit.category_id);
       setUnitOfMeasure(productToEdit.unit_of_measure);
       setReorderLevel(productToEdit.reorder_level);
+      setCostPrice(productToEdit.cost_price || 3000);
       setImageUrl(productToEdit.image_url || '');
     } else {
       setName('');
@@ -40,6 +42,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setCategoryId(categories[0]?.id || '');
       setUnitOfMeasure('pcs');
       setReorderLevel(10);
+      setCostPrice(3000);
       setImageUrl('');
       setInitialStocks(warehouses.map((w) => ({ warehouse_id: w.id, quantity: 0 })));
     }
@@ -57,6 +60,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: categoryId,
         unit_of_measure: unitOfMeasure,
         reorder_level: Number(reorderLevel),
+        cost_price: Number(costPrice),
         image_url: imageUrl,
       });
     } else {
@@ -67,6 +71,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           category_id: categoryId,
           unit_of_measure: unitOfMeasure,
           reorder_level: Number(reorderLevel),
+          cost_price: Number(costPrice),
           image_url: imageUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=80',
         },
         initialStocks
