@@ -2,6 +2,9 @@
 
 A centralized, real-time Inventory Management System (IMS) designed to digitize and streamline stock-related operations — incoming receipts, delivery dispatches, internal transfers, and physical audit adjustments.
 
+- **🌐 Live Demo Web App**: [https://ktjagannathan0.github.io/Odooo-hackathon/](https://ktjagannathan0.github.io/Odooo-hackathon/)
+- **📦 GitHub Repository**: [https://github.com/KTJAGANNATHAN0/Odooo-hackathon](https://github.com/KTJAGANNATHAN0/Odooo-hackathon)
+
 ![IMS Dashboard](https://raw.githubusercontent.com/KTJAGANNATHAN0/Odooo-hackathon/main/public/demo-banner.png)
 
 ## 🌟 Features & Highlights
