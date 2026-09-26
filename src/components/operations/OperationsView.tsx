@@ -92,6 +92,7 @@ export const OperationsView: React.FC<OperationsViewProps> = ({ type, searchQuer
 
       {/* Main Table Container */}
       <RecentOperationsTable
+        filterType={type}
         searchQuery={searchQuery}
         onOpenValidate={(op) => setOpToValidate(op)}
         onOpenDetail={(op) => setOpToValidate(op)}

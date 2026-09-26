@@ -39,14 +39,36 @@ A centralized, real-time Inventory Management System (IMS) designed to digitize 
 
 ---
 
+- **Backend & Database**:
+  - **Supabase (PostgreSQL)**: Relational schema for products, warehouses, stock levels, operations, and immutable stock ledger.
+  - **Realtime Subscriptions**: Live postgres change notifications on `stock_levels` table.
+  - **Dual Mode Architecture**: Seamless fallback between live Supabase cloud database and offline persistent local storage.
+  - **SQL Migration**: Complete setup script included at `supabase/schema.sql` with indexes, RLS policies, and seed data.
+
+---
+
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite
+- **Frontend**: React 19, TypeScript, Vite
+- **Database / Backend**: Supabase (PostgreSQL + Realtime Subscriptions)
 - **Styling**: Tailwind CSS v4, Vanilla CSS variables, Glassmorphism design system
-- **State Management**: Zustand (with local persistence)
+- **State Management**: Zustand (with local persistence & Supabase sync)
 - **Charts**: Recharts
 - **Icons**: Lucide React
 - **Animations**: Canvas Confetti, Framer Motion
+
+---
+
+## 🗄️ Supabase Setup & Configuration
+
+1. Create a free project on [Supabase](https://supabase.com/).
+2. Run the SQL script from `supabase/schema.sql` in the **Supabase SQL Editor**.
+3. Create a `.env` file from `.env.example`:
+   ```env
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-api-key
+   ```
+4. Or simply click the **Supabase: Connect** badge in the app's top bar to test and save credentials directly from the UI!
 
 ---
 

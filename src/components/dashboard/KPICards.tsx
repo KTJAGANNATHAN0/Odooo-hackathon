@@ -36,6 +36,15 @@ export const KPICards: React.FC<KPICardsProps> = ({ kpis, onNavigateToTab }) => 
       tab: 'deliveries',
     },
     {
+      title: 'Transfers Scheduled',
+      value: `${kpis.internalTransfersScheduledCount} scheduled`,
+      subInfo: 'Internal inter-warehouse shifts',
+      icon: <ArrowLeftRight className="w-5 h-5 text-purple-400" />,
+      bg: 'bg-purple-950/40 border-purple-500/30 text-purple-300',
+      pillBg: 'bg-purple-500/20 text-purple-300',
+      tab: 'transfers',
+    },
+    {
       title: 'Total Products In Stock',
       value: `${kpis.totalProductsInStock} SKUs`,
       subInfo: 'Distinct products with available stock',
@@ -65,7 +74,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ kpis, onNavigateToTab }) => 
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       {cards.map((card, idx) => (
         <div
           key={idx}

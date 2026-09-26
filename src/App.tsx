@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TopNavHeader, MainNavTab } from './components/layout/TopNavHeader';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { ProductsView } from './components/products/ProductsView';
@@ -11,16 +11,36 @@ import { ProfileView } from './components/profile/ProfileView';
 import { AuthModal } from './components/auth/AuthModal';
 import { OperationFormModal } from './components/operations/OperationFormModal';
 import { ValidateOperationModal } from './components/operations/ValidateOperationModal';
-import { Operation, OperationType, Product } from './types';
+import { Operation, OperationType } from './types';
+import { Sidebar } from './components/layout/Sidebar';
+import { useIMSStore } from './store/useIMSStore';
+import { supabaseService } from './services/supabaseService';
+import { isSupabaseConfigured } from './lib/supabase';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<MainNavTab>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
 
   // Modals state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [createOpType, setCreateOpType] = useState<OperationType | null>(null);
   const [validateOp, setValidateOp] = useState<Operation | null>(null);
+
+  const syncWithSupabase = useIMSStore((s) => s.syncWithSupabase);
+
+  // Initialize Supabase sync and Realtime subscriptions if configured
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      syncWithSupabase();
+      const unsubscribe = supabaseService.subscribeToStockChanges(() => {
+        syncWithSupabase();
+      });
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [syncWithSupabase]);
 
   const handleOpenCreateOp = (type: OperationType) => {
     setCreateOpType(type);
@@ -37,8 +57,19 @@ export function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-150">
+      <div className="flex-1 flex w-full">
+        {/* Left Sidebar (Profile Menu, Operations, Navigation) */}
+        <div className="hidden lg:block shrink-0">
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+          />
+        </div>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-150 overflow-x-hidden">
         {activeTab === 'dashboard' && (
           <DashboardView
             searchQuery={searchQuery}
@@ -90,6 +121,7 @@ export function App() {
           <ProfileView onOpenAuth={() => setIsAuthOpen(true)} />
         )}
       </main>
+      </div>
 
       {/* Global Modals */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

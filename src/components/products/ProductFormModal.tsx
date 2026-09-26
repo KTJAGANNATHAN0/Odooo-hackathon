@@ -28,6 +28,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [initialStocks, setInitialStocks] = useState<{ warehouse_id: string; quantity: number }[]>([]);
 
   useEffect(() => {
+    if (!isOpen) return;
     if (productToEdit) {
       setName(productToEdit.name);
       setSku(productToEdit.sku);
@@ -46,7 +47,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setImageUrl('');
       setInitialStocks(warehouses.map((w) => ({ warehouse_id: w.id, quantity: 0 })));
     }
-  }, [productToEdit, isOpen, categories, warehouses]);
+  }, [productToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -64,6 +65,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         image_url: imageUrl,
       });
     } else {
+      const formattedStocks = warehouses.map((w) => {
+        const found = initialStocks.find((st) => st.warehouse_id === w.id);
+        return { warehouse_id: w.id, quantity: Math.max(0, Number(found?.quantity) || 0) };
+      });
+
       addProduct(
         {
           name,
@@ -72,9 +78,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           unit_of_measure: unitOfMeasure,
           reorder_level: Number(reorderLevel),
           cost_price: Number(costPrice),
-          image_url: imageUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=80',
+          image_url: imageUrl || '/images/steel_rods.png',
         },
-        initialStocks
+        formattedStocks
       );
     }
     onClose();
@@ -193,21 +199,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {initialStocks.map((st, idx) => {
-                  const wh = warehouses.find((w) => w.id === st.warehouse_id);
+                {warehouses.map((wh) => {
+                  const currentQty = initialStocks.find((s) => s.warehouse_id === wh.id)?.quantity ?? 0;
                   return (
-                    <div key={st.warehouse_id} className="p-3 rounded-xl bg-slate-800/60 border border-slate-700">
-                      <div className="text-xs font-semibold text-slate-200">{wh?.name}</div>
-                      <div className="text-[10px] text-slate-400 mb-1.5">{wh?.code}</div>
+                    <div key={wh.id} className="p-3 rounded-xl bg-slate-800/60 border border-slate-700">
+                      <div className="text-xs font-semibold text-slate-200">{wh.name}</div>
+                      <div className="text-[10px] text-indigo-400 font-mono mb-1.5">{wh.code}</div>
                       <input
                         type="number"
                         min={0}
-                        value={st.quantity}
+                        placeholder="0"
+                        value={currentQty === 0 ? '' : currentQty}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setInitialStocks((prev) =>
-                            prev.map((item) => (item.warehouse_id === st.warehouse_id ? { ...item, quantity: val } : item))
-                          );
+                          const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                          setInitialStocks((prev) => {
+                            const exists = prev.some((item) => item.warehouse_id === wh.id);
+                            if (exists) {
+                              return prev.map((item) => (item.warehouse_id === wh.id ? { ...item, quantity: val } : item));
+                            }
+                            return [...prev, { warehouse_id: wh.id, quantity: val }];
+                          });
                         }}
                         className="w-full bg-slate-900 font-mono text-slate-200 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
                       />

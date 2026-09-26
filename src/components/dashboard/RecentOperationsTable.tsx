@@ -21,6 +21,8 @@ import {
   Play,
 } from 'lucide-react';
 
+import { PrintOperationModal } from '../operations/PrintOperationModal';
+
 interface RecentOperationsTableProps {
   searchQuery: string;
   onOpenValidate: (op: Operation) => void;
@@ -34,11 +36,14 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
   onOpenDetail,
   filterType,
 }) => {
-  const { operations, warehouses, products, activeWarehouseId, locations, markAsReady, cancelOperation } = useIMSStore();
+  const { operations, warehouses, products, categories, activeWarehouseId, locations, markAsReady, cancelOperation } = useIMSStore();
 
   const [selectedType, setSelectedType] = useState<string>(filterType || 'all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [opToPrint, setOpToPrint] = useState<Operation | null>(null);
 
   const filteredOps = operations.filter((op) => {
     // Override filterType if passed
@@ -51,11 +56,29 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
       }
     }
 
-    // Type Filter
+    // Type Filter (Receipts / Delivery / Internal / Adjustments)
     if (targetType !== 'all' && op.type !== targetType) return false;
 
-    // Status Filter
+    // Status Filter (Draft, Waiting, Ready, Done, Canceled)
     if (selectedStatus !== 'all' && op.status !== selectedStatus) return false;
+
+    // Product Category Filter
+    if (selectedCategory !== 'all') {
+      const matchCat = op.lines.some((line) => {
+        const prod = products.find((p) => p.id === line.product_id);
+        return prod?.category_id === selectedCategory;
+      });
+      if (!matchCat) return false;
+    }
+
+    // Location Filter
+    if (selectedLocation !== 'all') {
+      const loc = locations.find((l) => l.id === selectedLocation);
+      if (loc) {
+        const matchesWh = op.source_warehouse_id === loc.warehouse_id || op.destination_warehouse_id === loc.warehouse_id;
+        if (!matchesWh) return false;
+      }
+    }
 
     // Search Query Filter (Reference or Contact/Party)
     if (searchQuery.trim()) {
@@ -69,7 +92,7 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
   });
 
   const handlePrint = (op: Operation) => {
-    window.print();
+    setOpToPrint(op);
   };
 
   const getEmptyStateText = () => {
@@ -117,10 +140,14 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
     }
   };
 
+  const availableLocations = activeWarehouseId === 'all'
+    ? locations
+    : locations.filter((l) => l.warehouse_id === activeWarehouseId);
+
   return (
     <div className="space-y-6">
       <div className="glass-card rounded-2xl border border-slate-800 p-5">
-        {/* Header & View Toggle Bar */}
+        {/* Header & Dynamic Filters Bar */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-800">
           <div>
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -128,7 +155,7 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
               <span>Operations Registry</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Reference format: WH/IN/XXXX for receipts, WH/OUT/XXXX for deliveries
+              Reference format: WH/IN/XXXX for receipts, WH/OUT/XXXX for deliveries, WH/INT/XXXX for transfers
             </p>
           </div>
 
@@ -153,11 +180,28 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
               </button>
             </div>
 
+            {/* Document Type Select (when not scoped by parent view) */}
+            {!filterType && (
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="bg-slate-900 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                title="Filter by document type"
+              >
+                <option value="all">All Document Types</option>
+                <option value="receipt">Receipts (Incoming)</option>
+                <option value="delivery">Delivery Orders (Outgoing)</option>
+                <option value="transfer">Internal Transfers</option>
+                <option value="adjustment">Stock Adjustments</option>
+              </select>
+            )}
+
             {/* Status Select */}
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="bg-slate-900 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
+              title="Filter by status"
             >
               <option value="all">All Statuses</option>
               <option value="draft">Draft</option>
@@ -166,6 +210,38 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
               <option value="done">Done</option>
               <option value="canceled">Canceled</option>
             </select>
+
+            {/* Product Category Select */}
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="bg-slate-900 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
+              title="Filter by product category"
+            >
+              <option value="all">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Location Select */}
+            {availableLocations.length > 0 && (
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="bg-slate-900 text-slate-300 text-xs font-medium rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                title="Filter by warehouse location"
+              >
+                <option value="all">All Locations</option>
+                {availableLocations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -326,6 +402,12 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
           </div>
         </div>
       )}
+
+      {/* Printable Receipt / Delivery Slip Modal */}
+      <PrintOperationModal
+        operation={opToPrint}
+        onClose={() => setOpToPrint(null)}
+      />
     </div>
   );
 };

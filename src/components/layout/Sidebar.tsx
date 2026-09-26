@@ -16,20 +16,11 @@ import {
 } from 'lucide-react';
 import { useIMSStore } from '../../store/useIMSStore';
 
-export type NavTab =
-  | 'dashboard'
-  | 'products'
-  | 'receipts'
-  | 'deliveries'
-  | 'transfers'
-  | 'adjustments'
-  | 'history'
-  | 'warehouses'
-  | 'profile';
+import { MainNavTab } from './TopNavHeader';
 
 interface SidebarProps {
-  activeTab: NavTab;
-  setActiveTab: (tab: NavTab) => void;
+  activeTab: MainNavTab;
+  setActiveTab: (tab: MainNavTab) => void;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }
@@ -54,12 +45,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (o) => o.type === 'transfer' && (o.status === 'ready' || o.status === 'waiting')
   ).length;
 
-  const mainNavItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const mainNavItems: { id: MainNavTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'products', label: 'Products', icon: <Package className="w-4 h-4" /> },
+    { id: 'stock', label: 'Stock Valuation', icon: <Boxes className="w-4 h-4" /> },
   ];
 
-  const operationsNavItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const operationsNavItems: { id: MainNavTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'receipts', label: 'Receipts', icon: <ArrowDownLeft className="w-4 h-4 text-emerald-400" />, badge: pendingReceipts },
     { id: 'deliveries', label: 'Delivery Orders', icon: <ArrowUpRight className="w-4 h-4 text-blue-400" />, badge: pendingDeliveries },
     { id: 'transfers', label: 'Internal Transfers', icon: <ArrowLeftRight className="w-4 h-4 text-purple-400" />, badge: pendingTransfers },
@@ -67,9 +59,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'history', label: 'Move History', icon: <History className="w-4 h-4 text-cyan-400" /> },
   ];
 
-  const settingsNavItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'warehouses', label: 'Warehouses', icon: <Building2 className="w-4 h-4 text-slate-400" /> },
-    { id: 'profile', label: 'My Profile', icon: <UserIcon className="w-4 h-4 text-slate-400" /> },
+  const settingsNavItems: { id: MainNavTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'settings_warehouse', label: 'Warehouse Settings', icon: <Building2 className="w-4 h-4 text-slate-400" /> },
+    { id: 'settings_location', label: 'Locations & Rooms', icon: <Layers className="w-4 h-4 text-slate-400" /> },
   ];
 
   return (
@@ -190,6 +182,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               );
             })}
+          </div>
+
+          {/* Profile Menu (Left Sidebar) */}
+          <div className="space-y-1">
+            {!collapsed && (
+              <div className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                Profile Menu
+              </div>
+            )}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold'
+                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+              }`}
+              title={collapsed ? 'My Profile' : undefined}
+            >
+              <div className="flex items-center gap-3">
+                <UserIcon className="w-4 h-4 text-slate-400" />
+                {!collapsed && <span>My Profile</span>}
+              </div>
+            </button>
+
+            <button
+              onClick={() => logout()}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/40 hover:text-red-300 transition-all"
+              title={collapsed ? 'Logout' : undefined}
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="w-4 h-4" />
+                {!collapsed && <span>Logout</span>}
+              </div>
+            </button>
           </div>
         </div>
       </div>

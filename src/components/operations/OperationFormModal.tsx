@@ -105,7 +105,7 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
 
     createOperation({
       type,
-      supplier_or_customer: partyName,
+      supplier_or_customer: type === 'transfer' ? 'Internal Transfer' : type === 'adjustment' ? 'Stock Audit' : partyName,
       source_warehouse_id: type === 'receipt' ? undefined : sourceWhId,
       destination_warehouse_id: type === 'delivery' ? undefined : destWhId,
       schedule_date: scheduleDate,
@@ -172,31 +172,130 @@ export const OperationFormModal: React.FC<OperationFormModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {type === 'receipt' ? (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Receive From (Vendor) *</label>
-                <input
-                  type="text"
-                  required
-                  value={partyName}
-                  onChange={(e) => setPartyName(e.target.value)}
-                  placeholder="e.g. Apex Metal Supplies Ltd"
-                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Delivery Address (Customer) *</label>
-                <input
-                  type="text"
-                  required
-                  value={partyName}
-                  onChange={(e) => setPartyName(e.target.value)}
-                  placeholder="e.g. TechCorp HQ / Building B"
-                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {type === 'receipt' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Receive From (Vendor) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={partyName}
+                    onChange={(e) => setPartyName(e.target.value)}
+                    placeholder="e.g. Apex Metal Supplies Ltd"
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Destination Warehouse *</label>
+                  <select
+                    value={destWhId}
+                    onChange={(e) => setDestWhId(e.target.value)}
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {type === 'delivery' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Delivery Address (Customer) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={partyName}
+                    onChange={(e) => setPartyName(e.target.value)}
+                    placeholder="e.g. TechCorp HQ / Building B"
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Source Warehouse *</label>
+                  <select
+                    value={sourceWhId}
+                    onChange={(e) => setSourceWhId(e.target.value)}
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {type === 'transfer' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Source Warehouse (From) *</label>
+                  <select
+                    value={sourceWhId}
+                    onChange={(e) => setSourceWhId(e.target.value)}
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Destination Warehouse (To) *</label>
+                  <select
+                    value={destWhId}
+                    onChange={(e) => setDestWhId(e.target.value)}
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {type === 'adjustment' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Warehouse to Audit *</label>
+                  <select
+                    value={sourceWhId}
+                    onChange={(e) => {
+                      setSourceWhId(e.target.value);
+                      setDestWhId(e.target.value);
+                    }}
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Reason / Notes</label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="e.g. Physical stock count check"
+                    className="w-full bg-slate-800 text-slate-200 text-sm rounded-xl px-3.5 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </>
             )}
 
             <div>

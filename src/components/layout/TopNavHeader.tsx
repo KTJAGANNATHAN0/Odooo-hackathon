@@ -16,7 +16,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   User as UserIcon,
+  LogOut,
+  Database,
 } from 'lucide-react';
+import { isSupabaseConfigured } from '../../lib/supabase';
+import { SupabaseConfigModal } from '../modals/SupabaseConfigModal';
 
 export type MainNavTab =
   | 'dashboard'
@@ -53,6 +57,7 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
     setActiveWarehouse,
     user,
     isAuthenticated,
+    logout,
     products,
     stockLevels,
     redisCacheTTL,
@@ -63,6 +68,8 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showWhDropdown, setShowWhDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
 
   useEffect(() => {
     setTtl(redisCacheTTL);
@@ -257,6 +264,20 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
 
         {/* Right Controls & Profile Initial Avatar */}
         <div className="flex items-center gap-3">
+          {/* Supabase Connection Status Pill */}
+          <button
+            onClick={() => setShowSupabaseModal(true)}
+            title="Click to view or configure Supabase database connection"
+            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition-all hover:scale-105 ${
+              isSupabaseConfigured()
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                : 'bg-slate-900 border-slate-750 text-slate-300 hover:border-emerald-500/40'
+            }`}
+          >
+            <Database className={`w-3.5 h-3.5 ${isSupabaseConfigured() ? 'text-emerald-400 animate-pulse' : 'text-emerald-400'}`} />
+            <span className="font-semibold text-[11px]">{isSupabaseConfigured() ? 'Supabase: Live' : 'Supabase: Connect'}</span>
+          </button>
+
           {/* Upstash Redis TTL Indicator */}
           <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
             <Zap className="w-3.5 h-3.5 fill-emerald-400 animate-pulse text-emerald-400" />
@@ -341,16 +362,57 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
             )}
           </div>
 
-          {/* Profile Avatar Icon with User Initial 'A' */}
-          <button
-            onClick={() => setActiveTab('profile')}
-            className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 hover:ring-2 hover:ring-indigo-400 text-white font-extrabold text-sm flex items-center justify-center shadow-lg transition-all"
-            title={user ? user.name : 'Profile'}
-          >
-            {userInitial}
-          </button>
+          {/* Profile Avatar Icon with User Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 hover:ring-2 hover:ring-indigo-400 text-white font-extrabold text-sm flex items-center justify-center shadow-lg transition-all"
+              title={user ? user.name : 'Profile Menu'}
+            >
+              {userInitial}
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-2 z-50 animate-in fade-in duration-150">
+                {user && (
+                  <div className="px-3 py-2 border-b border-slate-800 mb-1">
+                    <div className="font-bold text-xs text-white truncate">{user.name}</div>
+                    <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
+                    <div className="text-[10px] text-indigo-400 font-semibold mt-0.5">{user.role}</div>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setActiveTab('profile');
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 font-medium flex items-center gap-2"
+                >
+                  <UserIcon className="w-4 h-4 text-indigo-400" />
+                  <span>My Profile</span>
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    setShowUserMenu(false);
+                    onOpenAuth();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-red-400 hover:bg-red-950/40 font-medium flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4 text-red-400" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Supabase Configuration Modal */}
+      <SupabaseConfigModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
+      />
     </header>
   );
 };

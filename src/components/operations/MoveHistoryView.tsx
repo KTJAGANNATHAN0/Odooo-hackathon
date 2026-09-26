@@ -47,24 +47,51 @@ export const MoveHistoryView: React.FC<MoveHistoryViewProps> = ({ searchQuery })
   });
 
   const exportToCSV = () => {
-    const headers = ['Reference', 'Date', 'Contact', 'From Location', 'To Location', 'Product SKU', 'Product Name', 'Quantity', 'Status'];
-    
+    const headers = [
+      'Reference',
+      'Date & Time',
+      'Contact',
+      'From Location',
+      'To Location',
+      'Product SKU',
+      'Product Name',
+      'Movement Type',
+      'Quantity Change',
+      'Status',
+    ];
+
     const rows = filteredLedger.map((item) => {
       const prod = products.find((p) => p.id === item.product_id);
+
+      // Safe, full timestamp formatting (YYYY-MM-DD HH:mm:ss)
+      let formattedDate = 'N/A';
+      try {
+        if (item.performed_at) {
+          const d = new Date(item.performed_at);
+          if (!isNaN(d.getTime())) {
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            formattedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+          }
+        }
+      } catch {
+        formattedDate = String(item.performed_at || 'N/A');
+      }
+
       return [
-        item.reference_no || 'N/A',
-        new Date(item.performed_at).toISOString().slice(0, 10),
-        `"${item.performed_by}"`,
-        `"${item.from_location || 'Vendor'}"`,
-        `"${item.to_location || 'WH/Stock1'}"`,
-        prod?.sku || '',
-        `"${prod?.name || ''}"`,
+        `"${item.reference_no || 'WH/IN/0001'}"`,
+        `"${formattedDate}"`,
+        `"${(item.performed_by || '').replace(/"/g, '""')}"`,
+        `"${(item.from_location || 'Vendor').replace(/"/g, '""')}"`,
+        `"${(item.to_location || 'WH/Stock1').replace(/"/g, '""')}"`,
+        `"${prod?.sku || ''}"`,
+        `"${(prod?.name || '').replace(/"/g, '""')}"`,
+        `"${item.movement_type}"`,
         item.quantity_change,
-        'Done',
+        '"Done"',
       ].join(',');
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\r\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);

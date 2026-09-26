@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabaseService } from '../services/supabaseService';
+import { isSupabaseConfigured } from '../lib/supabase';
 import {
   Warehouse,
   LocationItem,
@@ -21,6 +23,9 @@ interface IMSState {
   isAuthenticated: boolean;
   activeWarehouseId: string; // 'all' or warehouse ID
   redisCacheTTL: number;
+
+  // Supabase sync
+  syncWithSupabase: () => Promise<void>;
 
   // Data Collections
   warehouses: Warehouse[];
@@ -269,6 +274,22 @@ const initialOperations: Operation[] = [
       { id: 'line-6', operation_id: 'op-5', product_id: 'prod-desk', expected_qty: 80, actual_qty: 80, unit_of_measure: 'pcs' },
     ],
   },
+  {
+    id: 'op-6',
+    type: 'transfer',
+    status: 'ready',
+    reference_no: 'WH/INT/0001',
+    source_warehouse_id: 'wh-1',
+    destination_warehouse_id: 'wh-2',
+    schedule_date: tomorrowStr,
+    responsible_name: 'Alex Rivera',
+    notes: 'Internal transfer: Raw materials shifted to production floor.',
+    created_by: 'Alex Rivera',
+    created_at: '2026-09-26T09:30:00Z',
+    lines: [
+      { id: 'line-7', operation_id: 'op-6', product_id: 'prod-steel', expected_qty: 50, unit_of_measure: 'kg' },
+    ],
+  },
 ];
 
 const initialLedger: StockLedger[] = [
@@ -331,6 +352,32 @@ export const useIMSStore = create<IMSState>()(
       deliverySeq: 3,
       transferSeq: 1,
       adjustmentSeq: 1,
+
+      syncWithSupabase: async () => {
+        if (!isSupabaseConfigured()) return;
+        try {
+          const [dbWarehouses, dbProducts, dbStockLevels, dbOperations, dbLedger] = await Promise.all([
+            supabaseService.fetchWarehouses(),
+            supabaseService.fetchProducts(),
+            supabaseService.fetchStockLevels(),
+            supabaseService.fetchOperations(),
+            supabaseService.fetchLedger(),
+          ]);
+
+          const updates: any = {};
+          if (dbWarehouses && dbWarehouses.length > 0) updates.warehouses = dbWarehouses;
+          if (dbProducts && dbProducts.length > 0) updates.products = dbProducts;
+          if (dbStockLevels && dbStockLevels.length > 0) updates.stockLevels = dbStockLevels;
+          if (dbOperations && dbOperations.length > 0) updates.operations = dbOperations;
+          if (dbLedger && dbLedger.length > 0) updates.ledger = dbLedger;
+
+          if (Object.keys(updates).length > 0) {
+            set(updates);
+          }
+        } catch (err) {
+          console.warn('[Supabase Sync] Error syncing data:', err);
+        }
+      },
 
       login: (loginIdOrEmail, pass) => {
         if (!loginIdOrEmail || !pass) {
@@ -402,29 +449,34 @@ export const useIMSStore = create<IMSState>()(
 
         const newStockLevels = [...get().stockLevels];
         const newLedger = [...get().ledger];
+        const warehouseList = get().warehouses;
 
-        initialStocks.forEach((st) => {
+        warehouseList.forEach((wh) => {
+          const st = initialStocks.find((s) => s.warehouse_id === wh.id);
+          const qty = Math.max(0, Number(st?.quantity) || 0);
+
           newStockLevels.push({
-            id: `sl-${Date.now()}-${Math.random()}`,
+            id: `sl-${Date.now()}-${wh.id}-${Math.random().toString(36).substring(2, 6)}`,
             product_id: id,
-            warehouse_id: st.warehouse_id,
-            quantity: st.quantity,
+            warehouse_id: wh.id,
+            quantity: qty,
             updated_at: new Date().toISOString(),
           });
 
-          if (st.quantity > 0) {
+          if (qty > 0) {
             newLedger.unshift({
-              id: `led-${Date.now()}-${Math.random()}`,
+              id: `led-${Date.now()}-${wh.id}-${Math.random().toString(36).substring(2, 6)}`,
               product_id: id,
-              warehouse_id: st.warehouse_id,
+              warehouse_id: wh.id,
+              reference_no: 'INIT/STOCK',
               movement_type: 'IN',
-              quantity_change: st.quantity,
-              quantity_after: st.quantity,
+              quantity_change: qty,
+              quantity_after: qty,
               performed_by: get().user?.name || 'Alex Rivera',
               performed_at: new Date().toISOString(),
-              from_location: 'Vendor Creation',
-              to_location: 'WH/Stock1',
-              notes: 'Initial product stock creation',
+              from_location: 'Vendor Setup',
+              to_location: wh.code,
+              notes: `Initial stock allocation: ${qty} ${newProduct.unit_of_measure}`,
             });
           }
         });
@@ -435,6 +487,10 @@ export const useIMSStore = create<IMSState>()(
           ledger: newLedger,
           redisCacheTTL: 60,
         });
+
+        if (isSupabaseConfigured()) {
+          supabaseService.insertProduct(newProduct);
+        }
       },
 
       updateProduct: (id, data) => {
@@ -442,6 +498,10 @@ export const useIMSStore = create<IMSState>()(
           products: get().products.map((p) => (p.id === id ? { ...p, ...data } : p)),
           redisCacheTTL: 60,
         });
+
+        if (isSupabaseConfigured()) {
+          supabaseService.updateProduct(id, data);
+        }
       },
 
       deleteProduct: (id) => {
@@ -577,6 +637,9 @@ export const useIMSStore = create<IMSState>()(
         };
 
         set({ operations: [newOp, ...state.operations], redisCacheTTL: 60 });
+        if (isSupabaseConfigured()) {
+          supabaseService.insertOperation(newOp);
+        }
         return newOp;
       },
 
@@ -585,6 +648,9 @@ export const useIMSStore = create<IMSState>()(
           operations: get().operations.map((op) => (op.id === id ? { ...op, status: 'ready' } : op)),
           redisCacheTTL: 60,
         });
+        if (isSupabaseConfigured()) {
+          supabaseService.updateOperationStatus(id, 'ready');
+        }
       },
 
       cancelOperation: (id) => {
@@ -592,6 +658,9 @@ export const useIMSStore = create<IMSState>()(
           operations: get().operations.map((op) => (op.id === id ? { ...op, status: 'canceled' } : op)),
           redisCacheTTL: 60,
         });
+        if (isSupabaseConfigured()) {
+          supabaseService.updateOperationStatus(id, 'canceled');
+        }
       },
 
       validateOperation: (id, actualLines) => {
@@ -748,6 +817,43 @@ export const useIMSStore = create<IMSState>()(
               to_location: 'PROD/Floor',
               notes: `Transfer IN from ${srcWh}`,
             });
+          } else if (op.type === 'adjustment') {
+            const whId = op.source_warehouse_id || op.destination_warehouse_id || 'wh-1';
+            let stockIndex = updatedStockLevels.findIndex(
+              (s) => s.product_id === line.product_id && s.warehouse_id === whId
+            );
+            const recordedQty = stockIndex >= 0 ? Number(updatedStockLevels[stockIndex].quantity) : 0;
+            const countedQty = qty;
+            const delta = countedQty - recordedQty;
+
+            if (stockIndex >= 0) {
+              updatedStockLevels[stockIndex].quantity = countedQty;
+              updatedStockLevels[stockIndex].updated_at = now;
+            } else {
+              updatedStockLevels.push({
+                id: `sl-${Date.now()}-${Math.random()}`,
+                product_id: line.product_id,
+                warehouse_id: whId,
+                quantity: countedQty,
+                updated_at: now,
+              });
+            }
+
+            newLedgerEntries.unshift({
+              id: `led-${Date.now()}-${Math.random()}`,
+              product_id: line.product_id,
+              warehouse_id: whId,
+              operation_id: op.id,
+              reference_no: op.reference_no,
+              movement_type: 'ADJUST',
+              quantity_change: delta,
+              quantity_after: countedQty,
+              performed_by: performedBy,
+              performed_at: now,
+              from_location: 'Audit Count',
+              to_location: 'WH/Stock1',
+              notes: `Adjustment validation: recorded ${recordedQty}, counted ${countedQty} (${delta >= 0 ? '+' : ''}${delta} ${line.unit_of_measure})`,
+            });
           }
         }
 
@@ -761,6 +867,20 @@ export const useIMSStore = create<IMSState>()(
           ledger: newLedgerEntries,
           redisCacheTTL: 60,
         });
+
+        if (isSupabaseConfigured()) {
+          supabaseService.updateOperationStatus(op.id, 'done', now);
+          for (const line of updatedLines) {
+            if (op.destination_warehouse_id) {
+              const current = updatedStockLevels.find(s => s.product_id === line.product_id && s.warehouse_id === op.destination_warehouse_id)?.quantity || 0;
+              supabaseService.upsertStockLevel(line.product_id, op.destination_warehouse_id, current);
+            }
+            if (op.source_warehouse_id) {
+              const current = updatedStockLevels.find(s => s.product_id === line.product_id && s.warehouse_id === op.source_warehouse_id)?.quantity || 0;
+              supabaseService.upsertStockLevel(line.product_id, op.source_warehouse_id, current);
+            }
+          }
+        }
 
         return { success: true, message: `Operation ${op.reference_no} validated and stock levels updated!` };
       },
@@ -897,6 +1017,10 @@ export const useIMSStore = create<IMSState>()(
         const deliveriesWaitingCount = deliveryOps.filter((o) => o.status === 'waiting').length;
         const deliveriesOperationsCount = deliveryOps.filter((o) => o.schedule_date > today).length;
 
+        // Internal Transfers KPI Card logic
+        const transferOps = activeOps.filter((o) => o.type === 'transfer' && o.status !== 'done' && o.status !== 'canceled');
+        const internalTransfersScheduledCount = transferOps.length;
+
         // Stock totals
         let totalProductsInStock = 0;
         let lowStockItemsCount = 0;
@@ -924,6 +1048,7 @@ export const useIMSStore = create<IMSState>()(
           deliveriesLateCount,
           deliveriesWaitingCount,
           deliveriesOperationsCount,
+          internalTransfersScheduledCount,
           totalProductsInStock,
           lowStockItemsCount,
           outOfStockItemsCount,
@@ -941,7 +1066,7 @@ export const useIMSStore = create<IMSState>()(
           ledger: initialLedger,
           receiptSeq: 3,
           deliverySeq: 3,
-          transferSeq: 1,
+          transferSeq: 2,
           adjustmentSeq: 1,
           activeWarehouseId: 'all',
           redisCacheTTL: 60,

@@ -106,6 +106,7 @@ export interface DashboardKPIs {
   deliveriesLateCount: number;
   deliveriesWaitingCount: number;
   deliveriesOperationsCount: number;
+  internalTransfersScheduledCount: number;
   totalProductsInStock: number;
   lowStockItemsCount: number;
   outOfStockItemsCount: number;
