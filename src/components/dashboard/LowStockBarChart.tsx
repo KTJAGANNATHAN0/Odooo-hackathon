@@ -37,11 +37,11 @@ export const LowStockBarChart: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 text-white font-semibold text-base">
-            <AlertCircle className="w-5 h-5 text-amber-400" />
-            <span>Top Low-Stock Items vs Reorder Threshold</span>
+            <AlertCircle className="w-4 h-4 text-amber-700" />
+            <span>Stock vs. Reorder Level</span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Products requiring immediate vendor PO reordering
+            Five products ranked by current available quantity
           </p>
         </div>
       </div>
@@ -49,16 +49,16 @@ export const LowStockBarChart: React.FC = () => {
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} horizontal={false} />
-            <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} />
-            <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} width={100} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+            <XAxis type="number" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis dataKey="name" type="category" stroke="#4b5563" fontSize={11} width={100} tickLine={false} axisLine={false} />
             <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const item = payload[0].payload;
                   return (
-                    <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs text-white">
-                      <div className="font-bold text-amber-300">{item.fullName}</div>
+                    <div className="bg-white border border-slate-200 p-3 rounded-lg text-xs text-slate-800">
+                      <div className="font-semibold text-slate-900">{item.fullName}</div>
                       <div className="text-slate-400 font-mono">SKU: {item.sku}</div>
                       <div className="mt-1 flex items-center justify-between gap-4">
                         <span>Current Stock:</span>
@@ -78,7 +78,7 @@ export const LowStockBarChart: React.FC = () => {
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.current === 0 ? '#ef4444' : entry.current <= entry.reorder ? '#f59e0b' : '#6366f1'}
+                  fill={entry.current === 0 ? '#b91c1c' : entry.current <= entry.reorder ? '#b45309' : '#2563eb'}
                 />
               ))}
             </Bar>

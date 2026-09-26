@@ -20,7 +20,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 export function App() {
   const [activeTab, setActiveTab] = useState<MainNavTab>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
   // Modals state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -47,7 +47,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="app-shell min-h-screen flex flex-col font-sans">
       {/* Top Bar Header with Wireframe Top-Level Navigation */}
       <TopNavHeader
         activeTab={activeTab}

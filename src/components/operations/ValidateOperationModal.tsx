@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useIMSStore } from '../../store/useIMSStore';
 import { Operation } from '../../types';
-import confetti from 'canvas-confetti';
 import { X, CheckCircle2, AlertTriangle, ShieldCheck, Check } from 'lucide-react';
 
 interface ValidateOperationModalProps {
@@ -34,17 +33,6 @@ export const ValidateOperationModal: React.FC<ValidateOperationModalProps> = ({
     const res = validateOperation(operation.id, actuals);
 
     if (res.success) {
-      // Trigger canvas confetti burst
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#6366f1', '#10b981', '#f59e0b', '#3b82f6'],
-        });
-      } catch (err) {
-        // ignore if confetti fails
-      }
       onClose();
     } else {
       alert(res.message);

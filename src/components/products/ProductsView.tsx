@@ -3,6 +3,7 @@ import { useIMSStore } from '../../store/useIMSStore';
 import { Product } from '../../types';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductDetailModal } from './ProductDetailModal';
+import { defaultProductImage, resolveProductImageUrl } from '../../lib/productImage';
 import {
   Package,
   Plus,
@@ -23,10 +24,10 @@ interface ProductsViewProps {
 }
 
 export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
-  const { products, categories, stockLevels, activeWarehouseId } = useIMSStore();
+  const { products, categories, stockLevels, locations, activeWarehouseId } = useIMSStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [productToDetail, setProductToDetail] = useState<Product | null>(null);
@@ -49,7 +50,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wider mb-1">
             <Package className="w-4 h-4 text-indigo-400" />
@@ -164,18 +165,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
               <div
                 key={p.id}
                 onClick={() => setProductToDetail(p)}
-                className="glass-card rounded-2xl border border-slate-800 hover:border-indigo-500/40 p-4 transition-all hover:scale-[1.01] cursor-pointer flex flex-col justify-between group"
+                className="glass-card rounded-lg border border-slate-200 p-4 transition-colors cursor-pointer flex flex-col justify-between group"
               >
                 <div>
                   {/* Image & Badges */}
                   <div className="relative h-40 w-full rounded-xl bg-slate-800 overflow-hidden mb-3">
                     <img
-                      src={p.image_url || '/images/steel_rods.png'}
+                      src={resolveProductImageUrl(p.image_url)}
                       alt={p.name}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/images/steel_rods.png';
+                        (e.target as HTMLImageElement).src = defaultProductImage;
                       }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
                     <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur text-indigo-300 font-mono text-[10px] font-bold border border-indigo-500/30">
                       {p.sku}
@@ -241,15 +242,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
         </div>
       ) : (
         /* List View */
-        <div className="glass-card rounded-2xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="glass-card rounded-2xl border border-slate-800 overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-900/60 uppercase tracking-wider">
                 <th className="py-3 px-4">SKU</th>
                 <th className="py-3 px-4">Product Name</th>
                 <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Available Stock</th>
+                <th className="py-3 px-4">UOM</th>
+                <th className="py-3 px-4 text-right">On Hand</th>
+                <th className="py-3 px-4">Location</th>
                 <th className="py-3 px-4">Reorder Level</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -266,6 +270,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
 
                 const isLow = totalQty <= p.reorder_level && totalQty > 0;
                 const isOut = totalQty === 0;
+                const locationNames = [...new Set(
+                  stockLevels
+                    .filter((sl) => sl.product_id === p.id && (activeWarehouseId === 'all' || sl.warehouse_id === activeWarehouseId))
+                    .map((sl) => locations.find((location) => location.id === sl.location_id)?.name)
+                    .filter(Boolean)
+                )];
 
                 return (
                   <tr
@@ -274,15 +284,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
                     className="hover:bg-slate-800/40 transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 font-mono font-bold text-indigo-400">{p.sku}</td>
-                    <td className="py-3 px-4 font-bold text-white">{p.name}</td>
+                    <td className="py-3 px-4 font-semibold text-slate-900">{p.name}</td>
                     <td className="py-3 px-4 text-slate-300">{cat?.name || '—'}</td>
+                    <td className="py-3 px-4 text-slate-600">{p.unit_of_measure}</td>
                     <td className="py-3 px-4 font-mono font-bold">
-                      <span className={isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-emerald-400'}>
-                        {totalQty} {p.unit_of_measure}
-                      </span>
+                      <span className="block text-right tabular-nums text-slate-900">{totalQty}</span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {locationNames.length ? locationNames.join(', ') : '—'}
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-400">
                       {p.reorder_level} {p.unit_of_measure}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${isOut ? 'bg-red-50 text-red-700' : isLow ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                        {isOut ? 'Out of stock' : isLow ? 'Low stock' : 'In stock'}
+                      </span>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">

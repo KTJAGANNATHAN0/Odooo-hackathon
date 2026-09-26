@@ -104,7 +104,7 @@ export const MoveHistoryView: React.FC<MoveHistoryViewProps> = ({ searchQuery })
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs uppercase tracking-wider mb-1">
             <History className="w-4 h-4 text-cyan-400" />
@@ -178,15 +178,17 @@ export const MoveHistoryView: React.FC<MoveHistoryViewProps> = ({ searchQuery })
         ) : viewMode === 'list' ? (
           /* List View Table with Wireframe Columns: Reference · Date · Contact · From · To · Quantity · Status */
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full min-w-[1050px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider bg-slate-900/60">
                   <th className="py-3 px-4">Reference</th>
                   <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-4">Operation</th>
+                  <th className="py-3 px-4">Product</th>
                   <th className="py-3 px-4">From</th>
                   <th className="py-3 px-4">To</th>
-                  <th className="py-3 px-4">Product & Quantity</th>
+                  <th className="py-3 px-4 text-right">Quantity</th>
+                  <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4 text-right">Status</th>
                 </tr>
               </thead>
@@ -194,18 +196,10 @@ export const MoveHistoryView: React.FC<MoveHistoryViewProps> = ({ searchQuery })
                 {filteredLedger.map((item) => {
                   const prod = products.find((p) => p.id === item.product_id);
                   const isIncoming = item.movement_type === 'IN' || item.movement_type === 'TRANSFER_IN';
-                  const isOutgoing = item.movement_type === 'OUT' || item.movement_type === 'TRANSFER_OUT';
-
                   return (
                     <tr
                       key={item.id}
-                      className={`transition-colors ${
-                        isIncoming
-                          ? 'bg-emerald-950/20 hover:bg-emerald-950/30'
-                          : isOutgoing
-                          ? 'bg-red-950/20 hover:bg-red-950/30'
-                          : 'hover:bg-slate-800/40'
-                      }`}
+                      className="transition-colors hover:bg-slate-50"
                     >
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-200">
                         {item.reference_no || 'WH/IN/0001'}
@@ -216,15 +210,17 @@ export const MoveHistoryView: React.FC<MoveHistoryViewProps> = ({ searchQuery })
                           day: 'numeric',
                         })}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-300 font-medium">{item.performed_by}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{item.movement_type.replace('_', ' ')}</td>
+                      <td className="py-3.5 px-4 text-slate-900 font-medium">
+                        <div>{prod?.name || 'Product'}</div>
+                        <div className="text-xs text-slate-500 font-mono">{prod?.sku}</div>
+                      </td>
                       <td className="py-3.5 px-4 text-slate-300 font-mono">{item.from_location || 'Vendor'}</td>
                       <td className="py-3.5 px-4 text-slate-300 font-mono">{item.to_location || 'WH/Stock1'}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold">
-                        <div className="text-white">{prod?.name}</div>
-                        <div className={`text-xs ${isIncoming ? 'text-emerald-400' : isOutgoing ? 'text-red-400' : 'text-amber-400'}`}>
-                          {item.quantity_change > 0 ? `+${item.quantity_change}` : item.quantity_change} {prod?.unit_of_measure}
-                        </div>
+                      <td className="py-3.5 px-4 text-right font-mono font-semibold tabular-nums text-slate-900">
+                        {item.quantity_change > 0 ? `+${item.quantity_change}` : item.quantity_change} {prod?.unit_of_measure}
                       </td>
+                      <td className="py-3.5 px-4 text-slate-600">{item.performed_by}</td>
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                           Done

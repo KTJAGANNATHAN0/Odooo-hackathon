@@ -45,23 +45,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6">
       {/* Alert Banner if any stock low */}
       {alertProducts.length > 0 && (
-        <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
-              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            <div className="p-2 rounded-md bg-white text-amber-700 shrink-0">
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-sm text-white">
-                Low Stock Warning: {alertProducts.length} Product(s) Require Reordering!
+              <div className="font-semibold text-sm text-slate-900">
+                {alertProducts.length} products need replenishment
               </div>
-              <div className="text-xs text-amber-300/80">
-                Critical items: {alertProducts.map((p) => p.name).join(', ')}
+              <div className="text-xs text-slate-600">
+                {alertProducts.map((p) => p.name).join(', ')}
               </div>
             </div>
           </div>
           <button
             onClick={() => onNavigateToTab('products')}
-            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all shrink-0"
+            className="px-3 py-2 rounded-md bg-white border border-amber-300 text-amber-800 font-semibold text-xs transition-all shrink-0"
           >
             Review Low Stock Products
           </button>
@@ -69,17 +69,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Hero Banner & Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-800">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wider mb-1">
-            <Zap className="w-4 h-4 text-amber-400" />
-            <span>Odoo Inventory Command Center</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Inventory Dashboard
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Inventory Overview
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            Real-time tracking of stock receipts, delivery pick-and-packs, internal transfers, and physical audit counts.
+          <p className="text-sm text-slate-600 mt-1 max-w-xl">
+            Manage and monitor inventory operations across your warehouses.
           </p>
         </div>
 
@@ -87,25 +83,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => onOpenCreateOp('receipt')}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+            className="px-3 py-2 rounded-md bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5"
           >
             <ArrowDownLeft className="w-4 h-4" /> Receipt
           </button>
           <button
             onClick={() => onOpenCreateOp('delivery')}
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5"
+            className="px-3 py-2 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium flex items-center gap-1.5"
           >
             <ArrowUpRight className="w-4 h-4" /> Delivery
           </button>
           <button
             onClick={() => onOpenCreateOp('transfer')}
-            className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-md shadow-purple-600/30 flex items-center gap-1.5"
+            className="px-3 py-2 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium flex items-center gap-1.5"
           >
             <ArrowLeftRight className="w-4 h-4" /> Transfer
           </button>
           <button
             onClick={() => onOpenCreateOp('adjustment')}
-            className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold transition-all shadow-md shadow-amber-600/30 flex items-center gap-1.5"
+            className="px-3 py-2 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium flex items-center gap-1.5"
           >
             <SlidersHorizontal className="w-4 h-4" /> Adjustment
           </button>
@@ -113,20 +109,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* KPI Cards Grid */}
-      <KPICards kpis={kpis} />
+      <KPICards kpis={kpis} onNavigateToTab={onNavigateToTab} />
 
       {/* Interactive Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         <StockTrendChart />
-        <LowStockBarChart />
       </div>
 
-      {/* Recent Operations Table */}
-      <RecentOperationsTable
-        searchQuery={searchQuery}
-        onOpenValidate={onOpenValidate}
-        onOpenDetail={onOpenDetail}
-      />
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)] gap-4 items-start">
+        <RecentOperationsTable
+          searchQuery={searchQuery}
+          onOpenValidate={onOpenValidate}
+          onOpenDetail={onOpenDetail}
+        />
+        <LowStockBarChart />
+      </div>
     </div>
   );
 };

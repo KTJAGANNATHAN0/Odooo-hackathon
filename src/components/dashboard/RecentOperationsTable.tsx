@@ -96,13 +96,7 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
   };
 
   const getEmptyStateText = () => {
-    if (filterType === 'receipt' || selectedType === 'receipt') {
-      return 'Populate all work orders added to manufacturing order';
-    }
-    if (filterType === 'delivery' || selectedType === 'delivery') {
-      return 'Populate all delivery orders';
-    }
-    return 'No inventory operations match your search criteria';
+    return 'There are no operations matching your current filters.';
   };
 
   const getStatusBadge = (status: OperationStatus) => {
@@ -116,7 +110,7 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
       case 'waiting':
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-950/60 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 w-fit">
-            <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" /> Waiting Stock
+            <Clock className="w-3.5 h-3.5 text-amber-400" /> Waiting Stock
           </span>
         );
       case 'ready':
@@ -242,22 +236,53 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
                 ))}
               </select>
             )}
+            {(selectedType !== 'all' || selectedStatus !== 'all' || selectedCategory !== 'all' || selectedLocation !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedType(filterType || 'all');
+                  setSelectedStatus('all');
+                  setSelectedCategory('all');
+                  setSelectedLocation('all');
+                }}
+                className="px-3 py-2 text-xs font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         </div>
 
         {/* Content Mode */}
         {filteredOps.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 font-medium text-xs">
-            <FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-            <p className="max-w-md mx-auto">{getEmptyStateText()}</p>
+          <div className="py-10 text-center text-slate-500 text-sm">
+            <FileText className="w-5 h-5 text-slate-400 mx-auto mb-2" />
+            <p className="max-w-md mx-auto font-medium text-slate-800">No records found</p>
+            <p className="max-w-md mx-auto mt-1">{getEmptyStateText()}</p>
+            {(selectedType !== 'all' || selectedStatus !== 'all' || selectedCategory !== 'all' || selectedLocation !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedType(filterType || 'all');
+                  setSelectedStatus('all');
+                  setSelectedCategory('all');
+                  setSelectedLocation('all');
+                }}
+                className="mt-3 px-3 py-1.5 text-xs font-medium text-blue-700 border border-slate-300 rounded-md hover:bg-slate-50"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : viewMode === 'list' ? (
           /* List View Table (Reference · From · To · Contact · Schedule Date · Status · Actions) */
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider bg-slate-900/60">
                   <th className="py-3 px-4">Reference</th>
+                  <th className="py-3 px-4">Operation</th>
+                  <th className="py-3 px-4">Products / Qty</th>
                   <th className="py-3 px-4">From</th>
                   <th className="py-3 px-4">To</th>
                   <th className="py-3 px-4">Contact</th>
@@ -270,10 +295,18 @@ export const RecentOperationsTable: React.FC<RecentOperationsTableProps> = ({
                 {filteredOps.map((op) => {
                   const srcWh = warehouses.find((w) => w.id === op.source_warehouse_id)?.code || 'Vendor';
                   const destWh = warehouses.find((w) => w.id === op.destination_warehouse_id)?.code || 'Customer';
+                  const itemSummary = op.lines
+                    .map((line) => {
+                      const product = products.find((item) => item.id === line.product_id);
+                      return `${product?.name || 'Product'} · ${line.expected_qty} ${line.unit_of_measure}`;
+                    })
+                    .join(', ');
 
                   return (
                     <tr key={op.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">{op.reference_no}</td>
+                      <td className="py-3.5 px-4 capitalize text-slate-600">{op.type}</td>
+                      <td className="py-3.5 px-4 text-slate-700 max-w-sm truncate" title={itemSummary}>{itemSummary || '—'}</td>
                       <td className="py-3.5 px-4 font-semibold text-slate-300">
                         {op.type === 'receipt' ? op.supplier_or_customer || 'Vendor' : srcWh}
                       </td>

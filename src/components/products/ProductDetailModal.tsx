@@ -1,6 +1,7 @@
 import React from 'react';
 import { useIMSStore } from '../../store/useIMSStore';
 import { Product } from '../../types';
+import { defaultProductImage, resolveProductImageUrl } from '../../lib/productImage';
 import {
   X,
   Package,
@@ -53,10 +54,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 border-b border-slate-800 pb-6 mb-6">
           <div className="w-24 h-24 rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shrink-0">
             <img
-              src={product.image_url || '/images/steel_rods.png'}
+              src={resolveProductImageUrl(product.image_url)}
               alt={product.name}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/images/steel_rods.png';
+                (e.target as HTMLImageElement).src = defaultProductImage;
               }}
               className="w-full h-full object-cover"
             />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useIMSStore } from '../../store/useIMSStore';
 import {
   Boxes,
@@ -11,13 +11,16 @@ import {
   ChevronDown,
   Building2,
   MapPin,
-  Zap,
   Bell,
   CheckCircle2,
   AlertTriangle,
   User as UserIcon,
   LogOut,
   Database,
+  Zap,
+  Menu,
+  Search,
+  X,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { isRedisConfigured } from '../../lib/redis';
@@ -65,7 +68,6 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
     redisCacheTTL,
   } = useIMSStore();
 
-  const [ttl, setTtl] = useState(redisCacheTTL);
   const [showOpMenu, setShowOpMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showWhDropdown, setShowWhDropdown] = useState(false);
@@ -73,6 +75,8 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [showRedisModal, setShowRedisModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [ttl, setTtl] = useState(redisCacheTTL);
 
   useEffect(() => {
     setTtl(redisCacheTTL);
@@ -97,8 +101,8 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
   const userInitial = user ? user.name.charAt(0).toUpperCase() : 'A';
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 lg:px-8 shadow-xl">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 lg:px-8">
+      <div className="relative max-w-screen-2xl mx-auto flex flex-wrap items-center justify-between min-h-16 py-2 gap-y-2">
         {/* Brand & Main Top Navigation */}
         <div className="flex items-center gap-6">
           {/* App Logo */}
@@ -106,18 +110,28 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
             onClick={() => setActiveTab('dashboard')}
             className="flex items-center gap-2.5 cursor-pointer shrink-0"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold shadow-md shadow-indigo-500/20">
-              <Boxes className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
+              <Boxes className="w-5 h-5" />
             </div>
             <div className="leading-tight">
-              <span className="font-extrabold text-base text-white tracking-tight">
-                StockSense <span className="text-indigo-400 font-semibold text-xs px-1.5 py-0.5 rounded bg-indigo-500/20">Odoo</span>
+              <span className="font-semibold text-base text-slate-900">
+                StockSense <span className="text-slate-500 font-medium text-xs">Inventory</span>
               </span>
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowMobileMenu((open) => !open)}
+            className="p-2 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 lg:hidden"
+            aria-label={showMobileMenu ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={showMobileMenu}
+          >
+            {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+
           {/* Top Nav Links (Dashboard · Operations · Products · Stock · Move History · Settings) */}
-          <nav className="hidden md:flex items-center gap-1 font-medium text-xs">
+          <nav className="hidden">
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-3.5 py-2 rounded-xl transition-all ${
@@ -265,6 +279,18 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
           </nav>
         </div>
 
+        <div className="hidden sm:flex flex-1 max-w-md mx-5 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearchQuery(event.target.value)}
+            placeholder="Search products, SKU, references..."
+            aria-label="Search products, SKUs, and operation references"
+            className="w-full h-9 pl-9 pr-3 text-sm bg-white border border-slate-300 rounded-md"
+          />
+        </div>
+
         {/* Right Controls & Profile Initial Avatar */}
         <div className="flex items-center gap-3">
           {/* Supabase Connection Status Pill */}
@@ -277,24 +303,23 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
                 : 'bg-slate-900 border-slate-750 text-slate-300 hover:border-emerald-500/40'
             }`}
           >
-            <Database className={`w-3.5 h-3.5 ${isSupabaseConfigured() ? 'text-emerald-400 animate-pulse' : 'text-emerald-400'}`} />
+            <Database className={`w-3.5 h-3.5 ${isSupabaseConfigured() ? 'text-emerald-700' : 'text-slate-500'}`} />
             <span className="font-semibold text-[11px]">{isSupabaseConfigured() ? 'Supabase: Live' : 'Supabase: Connect'}</span>
           </button>
 
-          {/* Upstash Redis TTL Indicator & Telemetry Button */}
+          {/* Redis cache telemetry */}
           <button
             onClick={() => setShowRedisModal(true)}
             title="Click to view Redis cache telemetry & credentials"
-            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition-all hover:scale-105 ${
+            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-mono ${
               isRedisConfigured()
-                ? 'bg-amber-950/40 border-amber-500/30 text-amber-400'
-                : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
+                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-white border-slate-300 text-slate-600'
             }`}
           >
-            <Zap className={`w-3.5 h-3.5 ${isRedisConfigured() ? 'fill-amber-400 text-amber-400' : 'fill-emerald-400 text-emerald-400'} animate-pulse`} />
+            <Zap className="w-3.5 h-3.5" />
             <span>{isRedisConfigured() ? `Upstash: ${ttl}s` : `Redis TTL: ${ttl}s`}</span>
           </button>
-
           {/* Warehouse Switcher */}
           <div className="relative">
             <button
@@ -377,7 +402,7 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 hover:ring-2 hover:ring-indigo-400 text-white font-extrabold text-sm flex items-center justify-center shadow-lg transition-all"
+              className="w-9 h-9 rounded-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center"
               title={user ? user.name : 'Profile Menu'}
             >
               {userInitial}
@@ -417,6 +442,48 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
             )}
           </div>
         </div>
+
+        <div className="relative w-full sm:hidden">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearchQuery(event.target.value)}
+            placeholder="Search products, SKU, references..."
+            aria-label="Search products, SKUs, and operation references"
+            className="w-full h-9 pl-9 pr-3 text-sm bg-white border border-slate-300 rounded-md"
+          />
+        </div>
+
+        {showMobileMenu && (
+          <nav className="w-full lg:hidden grid grid-cols-2 gap-1 pt-2 border-t border-slate-200" aria-label="Main navigation">
+            {[
+              ['dashboard', 'Dashboard'],
+              ['products', 'Products'],
+              ['stock', 'Stock'],
+              ['receipts', 'Receipts'],
+              ['deliveries', 'Delivery Orders'],
+              ['transfers', 'Internal Transfers'],
+              ['adjustments', 'Adjustments'],
+              ['history', 'Move History'],
+              ['settings_warehouse', 'Warehouse Settings'],
+              ['settings_location', 'Locations'],
+              ['profile', 'My Profile'],
+            ].map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab as MainNavTab);
+                  setShowMobileMenu(false);
+                }}
+                className={`px-3 py-2 text-left text-sm rounded-md ${activeTab === tab ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
 
       {/* Supabase Configuration Modal */}

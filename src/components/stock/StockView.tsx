@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useIMSStore } from '../../store/useIMSStore';
-import { Boxes, Edit2, Check, ArrowRight, DollarSign, Building2, Search } from 'lucide-react';
+import { Boxes, Edit2, Check, MapPin } from 'lucide-react';
 
 interface StockViewProps {
   searchQuery: string;
 }
 
 export const StockView: React.FC<StockViewProps> = ({ searchQuery }) => {
-  const { products, stockLevels, operations, updateStockDirectly, activeWarehouseId, warehouses } = useIMSStore();
+  const { products, stockLevels, operations, locations, updateStockDirectly, activeWarehouseId, warehouses } = useIMSStore();
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingWarehouseId, setEditingWarehouseId] = useState<string>('wh-1');
@@ -33,28 +33,25 @@ export const StockView: React.FC<StockViewProps> = ({ searchQuery }) => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wider mb-1">
-            <Boxes className="w-4 h-4 text-indigo-400" />
-            <span>Master Inventory Valuation & Availability</span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Stock Inventory Overview</h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            View total On-Hand physical stock, unreserved Free-to-Use inventory, unit prices, and adjust stock directly inline.
+          <h1 className="text-2xl font-semibold text-slate-900">Stock</h1>
+          <p className="text-sm text-slate-600 mt-1 max-w-xl">
+            On-hand, reserved, and available quantities by product and warehouse.
           </p>
         </div>
       </div>
 
       {/* Stock Table */}
-      <div className="glass-card rounded-2xl border border-slate-800 p-5">
+      <div className="glass-card rounded-lg border border-slate-200">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[980px] text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider bg-slate-900/60">
                 <th className="py-3 px-4">SKU / Code</th>
                 <th className="py-3 px-4">Product Name</th>
                 <th className="py-3 px-4">Per Unit Cost</th>
+                <th className="py-3 px-4">Location</th>
                 <th className="py-3 px-4">On Hand Stock</th>
                 <th className="py-3 px-4">Reserved</th>
                 <th className="py-3 px-4">Free to Use</th>
@@ -63,14 +60,16 @@ export const StockView: React.FC<StockViewProps> = ({ searchQuery }) => {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredProducts.map((p) => {
-                // On Hand
-                const onHand = stockLevels
-                  .filter(
-                    (sl) =>
-                      sl.product_id === p.id &&
-                      (activeWarehouseId === 'all' || sl.warehouse_id === activeWarehouseId)
-                  )
+                const productLevels = stockLevels.filter(
+                  (sl) => sl.product_id === p.id && (activeWarehouseId === 'all' || sl.warehouse_id === activeWarehouseId)
+                );
+                const onHand = productLevels
                   .reduce((sum, item) => sum + Number(item.quantity), 0);
+                const locationNames = [...new Set(
+                  productLevels
+                    .map((level) => locations.find((location) => location.id === level.location_id)?.name)
+                    .filter(Boolean)
+                )];
 
                 // Reserved stock (pending deliveries)
                 const reserved = operations
@@ -86,9 +85,15 @@ export const StockView: React.FC<StockViewProps> = ({ searchQuery }) => {
                 return (
                   <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">{p.sku}</td>
-                    <td className="py-3.5 px-4 font-bold text-white">{p.name}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">{p.name}</td>
                     <td className="py-3.5 px-4 font-mono text-slate-200">
                       ₹{p.cost_price.toLocaleString()} <span className="text-[10px] text-slate-500">/ {p.unit_of_measure}</span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        {locationNames.length ? locationNames.join(', ') : '—'}
+                      </span>
                     </td>
                     <td className="py-3.5 px-4 font-mono font-extrabold text-white text-sm">
                       {onHand} <span className="text-xs font-normal text-slate-400">{p.unit_of_measure}</span>

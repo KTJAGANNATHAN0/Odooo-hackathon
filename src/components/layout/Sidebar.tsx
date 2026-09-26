@@ -67,15 +67,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={`relative z-40 transition-all duration-300 flex flex-col justify-between glass-panel border-r border-slate-800 ${
-        collapsed ? 'w-16' : 'w-64'
+        collapsed ? 'w-16' : 'w-56'
       } min-h-screen`}
     >
       <div>
         {/* Brand Header */}
         <div className="h-16 border-b border-slate-800/80 px-4 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 font-bold shrink-0">
-              <Boxes className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 font-semibold shrink-0">
+              <Boxes className="w-5 h-5" />
             </div>
             {!collapsed && (
               <div className="leading-tight">
@@ -107,8 +107,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/25 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
@@ -136,8 +136,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
@@ -170,8 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
@@ -195,8 +195,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setActiveTab('profile')}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'profile'
-                  ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold'
-                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-100 font-semibold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
               title={collapsed ? 'My Profile' : undefined}
             >
@@ -208,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => logout()}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/40 hover:text-red-300 transition-all"
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-red-700 hover:bg-red-50 transition-all"
               title={collapsed ? 'Logout' : undefined}
             >
               <div className="flex items-center gap-3">
