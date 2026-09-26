@@ -20,7 +20,9 @@ import {
   Database,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { isRedisConfigured } from '../../lib/redis';
 import { SupabaseConfigModal } from '../modals/SupabaseConfigModal';
+import { RedisConfigModal } from '../modals/RedisConfigModal';
 
 export type MainNavTab =
   | 'dashboard'
@@ -70,6 +72,7 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [showRedisModal, setShowRedisModal] = useState(false);
 
   useEffect(() => {
     setTtl(redisCacheTTL);
@@ -278,11 +281,19 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
             <span className="font-semibold text-[11px]">{isSupabaseConfigured() ? 'Supabase: Live' : 'Supabase: Connect'}</span>
           </button>
 
-          {/* Upstash Redis TTL Indicator */}
-          <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
-            <Zap className="w-3.5 h-3.5 fill-emerald-400 animate-pulse text-emerald-400" />
-            <span>Redis TTL: {ttl}s</span>
-          </div>
+          {/* Upstash Redis TTL Indicator & Telemetry Button */}
+          <button
+            onClick={() => setShowRedisModal(true)}
+            title="Click to view Redis cache telemetry & credentials"
+            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition-all hover:scale-105 ${
+              isRedisConfigured()
+                ? 'bg-amber-950/40 border-amber-500/30 text-amber-400'
+                : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
+            }`}
+          >
+            <Zap className={`w-3.5 h-3.5 ${isRedisConfigured() ? 'fill-amber-400 text-amber-400' : 'fill-emerald-400 text-emerald-400'} animate-pulse`} />
+            <span>{isRedisConfigured() ? `Upstash: ${ttl}s` : `Redis TTL: ${ttl}s`}</span>
+          </button>
 
           {/* Warehouse Switcher */}
           <div className="relative">
@@ -412,6 +423,12 @@ export const TopNavHeader: React.FC<TopNavHeaderProps> = ({
       <SupabaseConfigModal
         isOpen={showSupabaseModal}
         onClose={() => setShowSupabaseModal(false)}
+      />
+
+      {/* Upstash Redis Configuration & Cache Telemetry Modal */}
+      <RedisConfigModal
+        isOpen={showRedisModal}
+        onClose={() => setShowRedisModal(false)}
       />
     </header>
   );

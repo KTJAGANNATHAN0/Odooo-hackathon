@@ -6,7 +6,7 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_', 'UPSTASH_'],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

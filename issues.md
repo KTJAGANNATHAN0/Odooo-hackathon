@@ -35,3 +35,14 @@
   - **Adjustment Validation**: Handled `op.type === 'adjustment'` in `validateOperation` to properly update physical counted stock levels and log delta adjustments to `StockLedger`.
   - **Left Sidebar & Profile Menu**: Integrated `Sidebar.tsx` with Profile Menu (`My Profile`, `Logout`) and connected it to `App.tsx` layout alongside the top header.
 
+### 6. Upstash Redis Caching for Dashboard KPIs
+- **Status**: [RESOLVED]
+- **Solution**:
+  - Installed `@upstash/redis` client.
+  - Implemented dual-mode Redis client in `src/lib/redis.ts` supporting live Upstash REST API or high-speed local cache fallback.
+  - Created `RedisCacheService` in `src/services/redisService.ts` caching Dashboard KPI aggregations with a 60-second TTL.
+  - Integrated automatic cache invalidation in `useIMSStore.ts` on inventory operations, adjustments, products, and direct stock mutations.
+  - Created interactive `RedisConfigModal.tsx` displaying live cache hits/misses, active keys, TTL countdown, ping latency diagnostic test, cache flush button, and credentials configuration.
+  - Made the Redis indicator pill in `TopNavHeader.tsx` clickable to toggle the Redis configuration and cache telemetry modal.
+
+

@@ -25,8 +25,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenAuth }) => {
     );
   }
 
-  const handleOtpReset = () => {
-    const res = sendOtpReset(user.email);
+  const handleOtpReset = async () => {
+    const res = await sendOtpReset(user.email);
     alert(res.message);
   };
 

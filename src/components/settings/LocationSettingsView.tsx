@@ -29,12 +29,12 @@ export const LocationSettingsView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      updateLocation(editingId, { name, code, warehouse_id: warehouseId });
+      await updateLocation(editingId, { name, code, warehouse_id: warehouseId });
     } else {
-      addLocation({ name, code, warehouse_id: warehouseId });
+      await addLocation({ name, code, warehouse_id: warehouseId });
     }
     setIsModalOpen(false);
   };

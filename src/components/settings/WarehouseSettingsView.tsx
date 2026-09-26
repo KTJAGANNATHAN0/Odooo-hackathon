@@ -29,12 +29,12 @@ export const WarehouseSettingsView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingWhId) {
-      updateWarehouse(editingWhId, { name, code, location });
+      await updateWarehouse(editingWhId, { name, code, location });
     } else {
-      addWarehouse({ name, code, location });
+      await addWarehouse({ name, code, location });
     }
     setIsModalOpen(false);
   };

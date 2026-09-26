@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Product, Warehouse, Category, StockLevel, Operation, StockLedger, User } from '../types';
+import { Product, Warehouse, LocationItem, Category, StockLevel, Operation, StockLedger, User } from '../types';
 
 /**
  * Service providing database operations against Supabase
@@ -52,6 +52,73 @@ export const supabaseService = {
     } catch (err) {
       console.warn('[Supabase] insertWarehouse failed:', err);
       return null;
+    }
+  },
+
+  async updateWarehouse(id: string, updates: Partial<Warehouse>): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase.from('warehouses').update(updates).eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] updateWarehouse failed:', err);
+      return false;
+    }
+  },
+
+  async deleteWarehouse(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase.from('warehouses').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] deleteWarehouse failed:', err);
+      return false;
+    }
+  },
+
+  // -------------------------------------------------------------
+  // Locations
+  // -------------------------------------------------------------
+  async fetchLocations(): Promise<LocationItem[] | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await supabase.from('locations').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      return data as LocationItem[];
+    } catch (err) {
+      console.warn('[Supabase] fetchLocations failed:', err);
+      return null;
+    }
+  },
+
+  async insertLocation(loc: Omit<LocationItem, 'id' | 'created_at'>): Promise<LocationItem | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .insert([{ name: loc.name, code: loc.code, warehouse_id: loc.warehouse_id }])
+        .select()
+        .single();
+      if (error) throw error;
+      return data as LocationItem;
+    } catch (err) {
+      console.warn('[Supabase] insertLocation failed:', err);
+      return null;
+    }
+  },
+
+  async updateLocation(id: string, updates: Partial<LocationItem>): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase.from('locations').update(updates).eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] updateLocation failed:', err);
+      return false;
     }
   },
 
@@ -277,4 +344,53 @@ export const supabaseService = {
       supabase.removeChannel(channel);
     };
   },
+
+  // -------------------------------------------------------------
+  // Supabase Authentication
+  // -------------------------------------------------------------
+  async signIn(email: string, password: string) {
+    if (!isSupabaseConfigured()) {
+      return { data: { session: null, user: null }, error: new Error('Supabase is not configured') };
+    }
+    return await supabase.auth.signInWithPassword({ email, password });
+  },
+
+  async signUp(email: string, password: string, metadata?: { name?: string; role?: string; login_id?: string }) {
+    if (!isSupabaseConfigured()) {
+      return { data: { session: null, user: null }, error: new Error('Supabase is not configured') };
+    }
+    return await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: metadata,
+      },
+    });
+  },
+
+  async signOut() {
+    if (!isSupabaseConfigured()) return { error: null };
+    return await supabase.auth.signOut();
+  },
+
+  async getSession() {
+    if (!isSupabaseConfigured()) return { data: { session: null }, error: null };
+    return await supabase.auth.getSession();
+  },
+
+  async getUser() {
+    if (!isSupabaseConfigured()) return { data: { user: null }, error: null };
+    return await supabase.auth.getUser();
+  },
+
+  async resetPasswordForEmail(email: string) {
+    if (!isSupabaseConfigured()) return { data: null, error: null };
+    return await supabase.auth.resetPasswordForEmail(email);
+  },
+
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    if (!isSupabaseConfigured()) return { data: { subscription: { unsubscribe: () => {} } } };
+    return supabase.auth.onAuthStateChange(callback);
+  },
 };
+
