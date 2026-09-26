@@ -53,8 +53,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 border-b border-slate-800 pb-6 mb-6">
           <div className="w-24 h-24 rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shrink-0">
             <img
-              src={product.image_url || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=80'}
+              src={product.image_url || '/images/steel_rods.png'}
               alt={product.name}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/images/steel_rods.png';
+              }}
               className="w-full h-full object-cover"
             />
           </div>

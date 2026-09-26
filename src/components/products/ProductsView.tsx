@@ -170,11 +170,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ searchQuery }) => {
                   {/* Image & Badges */}
                   <div className="relative h-40 w-full rounded-xl bg-slate-800 overflow-hidden mb-3">
                     <img
-                      src={
-                        p.image_url ||
-                        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=300&q=80'
-                      }
+                      src={p.image_url || '/images/steel_rods.png'}
                       alt={p.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/steel_rods.png';
+                      }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur text-indigo-300 font-mono text-[10px] font-bold border border-indigo-500/30">

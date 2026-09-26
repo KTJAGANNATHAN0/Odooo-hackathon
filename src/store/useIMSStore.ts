@@ -115,7 +115,7 @@ const initialProducts: Product[] = [
     unit_of_measure: 'pcs',
     reorder_level: 20,
     cost_price: 3000,
-    image_url: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=300&q=80',
+    image_url: '/images/office_chair.png',
     created_at: '2026-02-10T10:00:00Z',
   },
   {
@@ -126,7 +126,7 @@ const initialProducts: Product[] = [
     unit_of_measure: 'pcs',
     reorder_level: 15,
     cost_price: 3000,
-    image_url: 'https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&w=300&q=80',
+    image_url: '/images/office_chair.png',
     created_at: '2026-02-12T11:30:00Z',
   },
   {
@@ -137,7 +137,7 @@ const initialProducts: Product[] = [
     unit_of_measure: 'pcs',
     reorder_level: 25,
     cost_price: 1500,
-    image_url: 'https://images.unsplash.com/photo-1580481072645-022f9a6d1205?auto=format&fit=crop&w=300&q=80',
+    image_url: '/images/office_chair.png',
     created_at: '2026-02-15T09:15:00Z',
   },
   {
@@ -148,7 +148,7 @@ const initialProducts: Product[] = [
     unit_of_measure: 'kg',
     reorder_level: 150,
     cost_price: 450,
-    image_url: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=300&q=80',
+    image_url: '/images/steel_rods.png',
     created_at: '2026-02-18T14:20:00Z',
   },
   {
@@ -159,7 +159,7 @@ const initialProducts: Product[] = [
     unit_of_measure: 'meter',
     reorder_level: 500,
     cost_price: 120,
-    image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=300&q=80',
+    image_url: '/images/copper_wire.png',
     created_at: '2026-02-20T16:00:00Z',
   },
 ];
